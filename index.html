@@ -318,7 +318,7 @@
         function logout() { me = null; cur = null; db = null; render() }
         const uTaken = u => { const l = u.toLowerCase(); return reg.owners.some(o => o.u.toLowerCase() == l) || reg.shops.some(s => ((sDb(s) || { users: [] }).users).some(x => x.u.toLowerCase() == l)) };
         function loginView(a) {
-            a.innerHTML = `<div id="login" class="card"><h3>${esc(reg.shops.length == 1 ? reg.shops[0].name : "Shop System")} - Login</h3><label>Username</label><input id="lu" autocomplete="username"><label>Password</label><input id="lp" type="password" autocomplete="current-password" onkeydown="if(event.key=='Enter')login()"><button class="p" onclick="login()">Login</button><p><small>Kindly enter your username and password.</small></p><p><small>Password bhool gaye? Owner se rabta karein.</small></p></div>`
+            a.innerHTML = `<div id="login" class="card"><h3>${esc(reg.shops.length == 1 ? reg.shops[0].name : "Shop System")} - Login</h3><label>Username</label><input id="lu" autocomplete="username"><label>Password</label><input id="lp" type="password" autocomplete="current-password" onkeydown="if(event.key=='Enter')login()"><button class="p" onclick="login()">Login</button><p><small>Kindly enter your username and password.</small></p><!-- <p><small>Password bhool gaye? Owner se rabta karein.</small></p> --></div>`
         }
         let pend = null;
         async function login() {
