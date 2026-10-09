@@ -1,252 +1,594 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Shop System</title>
-<style>
-*{box-sizing:border-box}body{margin:0;font:14px Arial,sans-serif;background:#eef2f6;color:#1d2733}
-header{background:#1F4E78;color:#fff;padding:8px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
-nav button{background:none;border:0;border-bottom:2px solid transparent;color:#bcd2e8;padding:8px 12px;cursor:pointer;font-size:14px}nav button.on{color:#fff;border-color:#fff}
-main{max-width:1000px;margin:16px auto;padding:0 12px}
-.card{background:#fff;border-radius:6px;padding:14px;margin-bottom:14px;border:1px solid #d5dde6}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
-.k{background:#fff;border:1px solid #d5dde6;border-left:4px solid #1F4E78;border-radius:6px;padding:10px}.k b{display:block;font-size:20px;margin-top:4px}
-input,select{padding:8px;border:1px solid #aab4bf;border-radius:5px;font-size:14px}
-button.p{padding:8px 14px;background:#1F4E78;color:#fff;border:0;border-radius:5px;cursor:pointer;font-size:14px}
-button.d{background:#b3261e;color:#fff;border:0;border-radius:4px;padding:4px 8px;cursor:pointer}
-button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #e8a317}
-table{width:100%;border-collapse:collapse}th{background:#1F4E78;color:#fff;text-align:left;padding:7px}td{padding:5px 7px;border-bottom:1px solid #e3e8ee}
-td input{width:90px}.tw{overflow-x:auto}.low{color:#9a5b00;font-weight:bold}.out{color:#b3261e;font-weight:bold}
-.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}label{font-size:12px;display:block;color:#555;margin-bottom:2px}h3{margin:0 0 10px}
-#login{max-width:340px;margin:70px auto}#login input{width:100%;margin-bottom:10px}
-.x td{color:#999}.x td:nth-last-child(-n+2){color:#1d2733}details.m{position:relative}summary{cursor:pointer;font-weight:bold;list-style:none;padding:0 8px}.mm{position:absolute;right:0;z-index:5;background:#fff;border:1px solid #aab4bf;border-radius:5px;min-width:160px;box-shadow:0 2px 6px #0003}.mm a{display:block;padding:8px 10px;cursor:pointer}.mm a:hover{background:#eef2f6}
-.mo{position:fixed;inset:0;background:#0006;display:flex;align-items:center;justify-content:center;z-index:9}.mc{background:#fff;border-radius:6px;padding:16px;width:min(360px,92vw)}.mc input,.mc select{width:100%;margin-bottom:8px}.tw{min-height:150px}
-.adjr td{background:#fff3cd}.adj{background:#ffe08a;color:#7a4b00;padding:2px 6px;border-radius:4px;font-weight:bold;font-size:12px;display:inline-block}.x.adjr td{background:none}.ib{display:inline-flex;align-items:center;gap:4px}
-.ov td{background:#fde7e7}.cl{color:#1b6e2d;font-weight:bold}
-</style></head><body><div id="app"></div><div id="md"></div>
-<script>
-const K="shopdb1",$=s=>document.querySelector(s);
-const seed=[["Back Sheet Matte Paper",50,75],["Back Sheet Matte 3D",58,90],["Back Sheet Matte Leather",13,130],["Jonny Hand-free",16,310],["Black-Airbuds",10,560],["White-Airbuds",5,460],["Cable Sunny",4,155],["Cable 86 Romoss",20,95],["Pic Type C (Cable)",30,70],["USB C Charger 20W",2,620],["USB Charger 35W",2,720],["Samsung Adaptor",5,470],["Vivo Flash Charger Fast",5,620],["iPhone Cable C to Lightning",20,90],["iPhone Cable USB",5,155],["Cable C to C",10,95],["Handsfree",5,260],["Google Charger 30W",2,620],["Power Bank 10000 mAh (KR)",1,1870],["Power Bank 10000 mAh Fast X",1,1270],["Power Bank 20000 mAh Fast X",1,2700],["Trinex",2,1550],["Type C Load (Cable)",10,95],["P47 Wireless Headphone",1,650],["Pics Romoss",5,105],["Glass 9D",200,55],["New Mobile (Glass)",15,60],["New S20",5,60]];
-const MN=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-let db=JSON.parse(localStorage.getItem(K)||"null"),me=null,tab="",sd="";
-const save=()=>localStorage.setItem(K,JSON.stringify(db));
-const H=async s=>{try{const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("shop"+s));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")}catch(e){return btoa("shop"+s)}};
-const fmt=n=>Number(n||0).toLocaleString("en-PK"),dk=t=>new Date(t).toLocaleDateString("en-CA"),now=()=>dk(Date.now());
-const fx=s=>s.qty*s.rate,tot=s=>s.total!=null?s.total:s.qty*s.rate,paid=s=>s.paid!=null?s.paid:tot(s),prof=s=>tot(s)-s.qty*s.cost,nm=()=>(db.set&&db.set.name)||"Shop System",sum=(a,f)=>a.reduce((x,y)=>x+f(y),0);
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const opt=a=>a.map(i=>`<option value="${i.id}">${esc(i.name)} (${i.qty})</option>`).join("");
-const item=id=>db.items.find(i=>i.id==id);
-async function init(){if(!db){db={items:seed.map((s,i)=>({id:i+1,name:s[0],qty:s[1],cost:s[2],price:s[2]})),sales:[],restocks:[],users:[{u:"admin",p:await H("admin123"),role:"admin"},{u:"staff",p:await H("staff123"),role:"staff"}],low:3,nid:1000,logs:[],set:{staffStock:false,staffCost:false,name:"Shop System"}};save()}fix();sd=now();render()}
-function fix(){db.logs=db.logs||[];db.set=db.set||{staffStock:false,staffCost:false};db.set.name=db.set.name||"Shop System";if(db.set.staffUdhar===undefined)db.set.staffUdhar=true;document.title=db.set.name;db.sales.forEach(s=>{s.status=s.status||"ok"});db.udhar=db.udhar||[];db.uid=db.uid||1;db.udhar.forEach(u=>{u.pays=u.pays||[];u.hist=u.hist||[]})}
-const act=i=>i.active!==false,tm=t=>new Date(t).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}),dt=t=>dk(t)+" "+tm(t),sale=id=>db.sales.find(x=>x.id==id);
-const log=(type,ref,o,n,why)=>db.logs.push({ts:Date.now(),type,ref,old:o,new:n,by:me.u,why:why||""});
-const ask=m=>new Promise(r=>{showMd(`<h3>${esc(m)}</h3><input id="pi" style="margin-top:8px"><button class="p" id="po">OK</button> <button id="pc">Cancel</button>`);$("#pi").focus();$("#pi").onkeydown=e=>{if(e.key=="Enter")$("#po").click()};$("#po").onclick=()=>{const v=$("#pi").value;closeMd();r(v)};$("#pc").onclick=()=>{closeMd();r(null)}}),showMd=h=>$("#md").innerHTML=`<div class="mo"><div class="mc">${h}</div></div>`,closeMd=()=>$("#md").innerHTML="";
-const showWd=h=>$("#md").innerHTML=`<div class="mo"><div class="mc" style="width:min(560px,94vw);max-height:90vh;overflow:auto">${h}</div></div>`;
-function render(){const a=$("#app");
-if(!me){a.innerHTML=`<div id="login" class="card"><h3>${esc(nm())} - Login</h3><label>Username</label><input id="lu"><label>Password</label><input id="lp" type="password" onkeydown="if(event.key=='Enter')login()"><button class="p" onclick="login()">Login</button><p><small>Pehli dafa: admin / admin123 aur staff / staff123. Login ke baad Backup tab mein password badal lein.</small></p></div>`;return}
-const AD=["dash","stock","re","logs","usr","bk","set"];if(me.role!="admin"&&(AD.includes(tab)||(tab=="sv"&&!db.set.staffStock)||(tab=="ud"&&!db.set.staffUdhar)))tab="sale";
-const T=me.role=="admin"?[["dash","Dashboard"],["sale","Sales"],["ud","Udhar"],["stock","Stock"],["re","Restock"],["logs","Logs"],["usr","Users"],["set","Settings"],["bk","Backup"]]:[["sale","Sales Entry"]].concat(db.set.staffUdhar?[["ud","Udhar"]]:[],db.set.staffStock?[["sv","Stock"]]:[]);
-document.title=nm();a.innerHTML=`<header><b>${esc(nm())}</b><nav>${T.map(t=>`<button class="${tab==t[0]?"on":""}" onclick="tab='${t[0]}';render()">${t[1]}</button>`).join("")}</nav><span>${esc(me.u)} (${me.role}) <button class="p" onclick="me=null;render()">Logout</button></span></header><main>${({dash:vDash,sale:vSale,sv:vSV,stock:vStock,re:vRe,logs:vLog,usr:vUsr,bk:vBk,set:vSet,ud:vUd})[tab]()}</main>`;
-if(tab=="sale")pv(1);if(tab=="ud")uInit()}
-async function login(){const u=$("#lu").value.trim(),p=await H($("#lp").value),x=db.users.find(y=>y.u==u&&y.p==p);if(!x)return alert("Username ya password galat hai.");me={u:x.u,role:x.role};tab=x.role=="admin"?"dash":"sale";render()}
-// ---- Sales
-const canRe=s=>s.status=="cancelled"&&(me.role=="admin"||(s.by==me.u&&dk(s.ts)==now()));
-const canEdit=s=>s.status!="cancelled"&&(me.role=="admin"||(s.by==me.u&&dk(s.ts)==now()));
-function row(s,ad){const c=s.status=="cancelled",f=fx(s),t=tot(s),aj=f!=t;return `<tr class="${c?"x ":""}${aj?"adjr":""}"><td>${ad?dt(s.ts):tm(s.ts)}${s.editTs?`<br><small>Edit: ${dt(s.editTs)} (${esc(s.editBy)})</small>`:""}<td>${esc(s.name)}<td>${s.qty}<td>${fmt(s.rate)}<td>${fmt(f)}<td>${fmt(t)}${aj?`<br><span class="adj">Customer Adjustment ${t<f?"-":"+"}${fmt(Math.abs(f-t))}</span>`:""}<td>${fmt(paid(s))}${paid(s)<t?`<br><small>Baqaya ${fmt(t-paid(s))}</small>`:""}${ad?`<td>${fmt(prof(s))}<td>${esc(s.by)}`:""}<td>${c?"Cancelled":"OK"}<td><details class="m"><summary>&#8943;</summary><div class="mm">${canEdit(s)?`<a onclick="editSale(${s.id})">Edit</a><a onclick="cancelSale(${s.id})">Return / Cancel Sale</a>`:""}${canRe(s)?`<a onclick="restoreSale(${s.id})">Activate Again (Restore)</a>`:""}<a onclick="viewHist(${s.id})">View History</a></div></details></tr>`}
-let sfl={from:now(),to:now(),q:"",st:""};
-const sList=()=>{const ad=me.role=="admin",q=sfl.q.trim().toLowerCase(),a=sfl.from||"0000-00-00",b=sfl.to||"9999-12-31";return db.sales.filter(s=>dk(s.ts)>=a&&dk(s.ts)<=b&&(ad||s.by==me.u)&&(!q||s.name.toLowerCase().includes(q)||String(s.by||"").toLowerCase().includes(q))&&(!sfl.st||(sfl.st=="Cancelled")==(s.status=="cancelled"))).sort((x,y)=>y.ts-x.ts)};
-function vSale(){const ad=me.role=="admin",A=sList(),L=A.filter(s=>s.status!="cancelled"),M=db.sales.filter(s=>s.status!="cancelled"&&dk(s.ts).slice(0,7)==now().slice(0,7)),k=(a,b)=>`<div class="k">${a}<b>${b}</b></div>`;
-return `<div class="card"><h3>Nai Bikri</h3><div class="row"><div><label>Item</label><select id="si" onchange="pv(1)">${opt(db.items.filter(i=>act(i)&&i.qty>0))}</select></div><div><label>Qty</label><input id="sq" type="number" min="1" value="1" style="width:80px" oninput="pv(1)"></div><div><label>Rate (fixed)</label><b id="sr"></b></div><div><label>Fixed Total</label><b id="sf"></b></div><div><label>Customer Agreed Total</label><input id="st" type="number" min="0" style="width:130px" oninput="pv(0,1)"></div><div><label>Customer ne diye (Rs)</label><input id="sp" type="number" min="0" style="width:130px" oninput="pv(0,0,1)"></div><div><label>Rate/pc (adjusted)</label><b id="sa"></b></div><button class="p" onclick="addSale()">Save Sale</button></div><div id="sn" style="margin-top:6px"></div></div>
-${ad?`<div class="grid">${k("Filter ki Sale",fmt(sum(L,tot)))}${k("Filter ka Profit",fmt(sum(L,prof)))}${k("Items Sold",sum(L,s=>s.qty))}${k("Mahine ki Sale",fmt(sum(M,tot)))}${k("Mahine ka Profit",fmt(sum(M,prof)))}</div>`:""}
-<div class="card"><div class="row"><h3>Sales ki list</h3><div><label>Search (item / by)</label><input value="${esc(sfl.q)}" style="width:140px" onchange="sfl.q=this.value;render()"></div><div><label>Start From</label><input type="date" value="${sfl.from}" onchange="sfl.from=this.value;render()"></div><div><label>To</label><input type="date" value="${sfl.to}" onchange="sfl.to=this.value;render()"></div><div><label>Status</label><select onchange="sfl.st=this.value;render()">${["","OK","Cancelled"].map(x=>`<option value="${x}" ${sfl.st==x?"selected":""}>${x||"Sab"}</option>`).join("")}</select></div><button class="p" onclick="sfl={from:now(),to:now(),q:'',st:''};render()">Filter hatayein</button><button class="p ib" title="Excel export" onclick="expSales()">&#128229; Excel</button></div><div class="tw"><table><tr><th>${ad?"Entry (Date/Time)":"Time"}<th>Item<th>Qty<th>Rate<th>Fixed Total<th>Customer Total<th>Paid${ad?"<th>Profit<th>By":""}<th>Status<th>Action</tr>${A.map(s=>row(s,ad)).join("")}<tr><th colspan="4">Total<th>${fmt(sum(L,fx))}<th>${fmt(sum(L,tot))}<th>${fmt(sum(L,paid))}${ad?`<th>${fmt(sum(L,prof))}<th>`:""}<th><th></tr></table></div></div>`}
-let pd=0;
-function pv(r,a,p){const i=item($("#si").value),q=+$("#sq").value||0,f=i?i.price*q:0,T=$("#st"),P=$("#sp");if(r){T.value=f;P.value=f;pd=0}if(a&&!pd)P.value=T.value;if(p)pd=1;const t=+T.value||0,x=+P.value||0;
-$("#sr").textContent=i?fmt(i.price):"-";$("#sf").textContent=fmt(f);$("#sa").innerHTML=q?fmt(+(t/q).toFixed(2))+(t!=f&&i?` <small>(fixed ${fmt(i.price)})</small>`:""):"-";
-let h="";if(t!=f)h+=`<span class="adj">Customer Adjustment: ${t<f?"Discount":"Extra"} ${fmt(Math.abs(f-t))} (Fixed ${fmt(f)} → Agreed ${fmt(t)})</span> `;if(x<t)h+=`<span class="adj">Baqaya: ${fmt(t-x)}</span>`;$("#sn").innerHTML=h}
-function addSale(){const i=item($("#si").value),q=parseInt($("#sq").value),t=+$("#st").value,pa=+$("#sp").value,ad=me.role=="admin";if(!i)return alert("Item chunein.");if(!(q>=1))return alert("Qty 1 ya zyada likhein.");if(q>i.qty)return alert("Stock kam hai. Sirf "+i.qty+" bachi hain.");
-if($("#st").value===""||!(t>=0))return alert("Customer Agreed Total likhein.");if(t<i.cost*q)return alert("Is total par loss hoga. Minimum total "+fmt(i.cost*q)+" hona chahiye.");if(!ad&&t>i.price*q)return alert("Total Fixed Total ("+fmt(i.price*q)+") se zyada nahi ho sakta.");if($("#sp").value===""||!(pa>=0)||pa>t)return alert("Customer ne diye paisay 0 se Agreed Total ke beech likhein.");
-if(db.sales.find(s=>s.by==me.u&&s.iid==i.id&&s.qty==q&&s.status!="cancelled"&&Date.now()-s.ts<120000)&&!confirm("Ye sale abhi abhi save ho chuki hai. Phir bhi save karein?"))return;
-db.sales.push({id:db.nid++,ts:Date.now(),iid:i.id,name:i.name,qty:q,rate:i.price,total:t,paid:pa,cost:i.cost,by:me.u,status:"ok",hist:[]});i.qty-=q;save();render()}
-function editSale(id){const s=sale(id);if(!canEdit(s))return alert("Ye entry aap edit nahi kar sakte.");if(!item(s.iid))return alert("Ye item delete ho chuka hai, edit nahi ho sakta.");
-showMd(`<h3>Sale Edit</h3><label>Item</label><select id="ei" onchange="ep(2)">${db.items.filter(i=>act(i)||i.id==s.iid).map(i=>`<option value="${i.id}" ${i.id==s.iid?"selected":""}>${esc(i.name)} (${i.qty+(i.id==s.iid?s.qty:0)})</option>`).join("")}</select><label>Qty</label><input id="eq" type="number" min="1" value="${s.qty}" oninput="ep(1)"><label>Rate (fixed)</label><input id="er" type="number" value="${s.rate}" oninput="ep(1)"><p>Fixed Total: <b id="ef"></b></p><label>Customer Agreed Total</label><input id="et" type="number" min="0" value="${tot(s)}" oninput="ep()"><label>Customer ne diye (Rs)</label><input id="ep" type="number" min="0" value="${paid(s)}"><p id="en"></p><button class="p" onclick="saveEdit(${id})">Save Edit</button> <button onclick="closeMd()">Cancel</button>`);ep()}
-function ep(c){if(c==2)$("#er").value=item($("#ei").value).price;const f=($("#eq").value||0)*($("#er").value||0);if(c){$("#et").value=f;$("#ep").value=f}const t=+$("#et").value||0;$("#ef").textContent=fmt(f);$("#en").innerHTML=t!=f?`<span class="adj">Customer Adjustment: ${t<f?"Discount":"Extra"} ${fmt(Math.abs(f-t))}</span>`:""}
-function saveEdit(id){const s=sale(id),ad=me.role=="admin",n=item($("#ei").value),o=item(s.iid),q=parseInt($("#eq").value),r=+$("#er").value,t=+$("#et").value,pa=+$("#ep").value;
-if(!(q>=1))return alert("Qty 1 ya zyada honi chahiye. Poori sale wapis karni ho to Return / Cancel use karein.");
-if(q>n.qty+(o&&o.id==n.id?s.qty:0))return alert("Stock kam hai.");
-const c=n.id==s.iid?s.cost:n.cost;
-if(!(r>=0)||$("#et").value===""||!(t>=0))return alert("Rate aur Agreed Total sahi likhein.");if(t<c*q)return alert("Is total par loss hoga. Minimum total "+fmt(c*q)+" hona chahiye.");
-if(!ad&&r>n.price)return alert("Rate Sale Price se zyada nahi ho sakta.");if(!ad&&t>r*q)return alert("Total Fixed Total se zyada nahi ho sakta.");if(!(pa>=0)||pa>t)return alert("Customer ne diye paisay 0 se Agreed Total ke beech likhein.");
-const a=`${s.name} x${s.qty} @${s.rate} total ${tot(s)} paid ${paid(s)}`,b=`${n.name} x${q} @${r} total ${t} paid ${pa}`;if(a==b)return closeMd();
-if(!confirm("Kya aap is naye edit ko save karna chahte hain?"))return closeMd();
-if(o)o.qty+=s.qty;n.qty-=q;Object.assign(s,{iid:n.id,name:n.name,qty:q,rate:r,total:t,paid:pa,cost:c,editTs:Date.now(),editBy:me.u});(s.hist=s.hist||[]).push({ts:Date.now(),by:me.u,txt:a+" -> "+b});log("Sale Edit","Sale #"+id,a,b);save();closeMd();render()}
-function cancelSale(id){const s=sale(id);if(!canEdit(s))return;if(!confirm("Poori sale wapis/cancel karein? Qty stock mein wapas chali jayegi."))return;const o=item(s.iid);if(o)o.qty+=s.qty;s.status="cancelled";s.editTs=Date.now();s.editBy=me.u;(s.hist=s.hist||[]).push({ts:Date.now(),by:me.u,txt:"Cancelled / Return"});log("Sale Cancel","Sale #"+id,`${s.name} x${s.qty}`,"Cancelled");save();render()}
-function restoreSale(id){const s=sale(id);if(!s||!canRe(s))return;const o=item(s.iid);if(!o)return alert("Ye item delete ho chuka hai, sale dobara active nahi ho sakti.");if(o.qty<s.qty)return alert("Stock kam hai. "+o.name+" ki sirf "+o.qty+" bachi hain.");if(!confirm("Ye sale dobara active (OK) karein? Qty stock se dobara minus hogi."))return;o.qty-=s.qty;s.status="ok";s.editTs=Date.now();s.editBy=me.u;(s.hist=s.hist||[]).push({ts:Date.now(),by:me.u,txt:"Restored / Activated again"});log("Sale Restore","Sale #"+id,"Cancelled",`${s.name} x${s.qty}`);save();render()}
-function viewHist(id){const s=sale(id);alert("Original entry: "+dt(s.ts)+" ("+s.by+")\n"+`${s.name} x${s.qty} @${s.rate} | Fixed ${fmt(fx(s))} | Customer Total ${fmt(tot(s))} | Paid ${fmt(paid(s))}\n\n`+((s.hist||[]).map(h=>dt(h.ts)+" ("+h.by+"): "+h.txt).join("\n")||"Koi change nahi hua."))}
-// ---- Udhar
-const udh=id=>db.udhar.find(x=>x.id==id),uidf=u=>"U-"+String(u.id).padStart(4,"0"),upaid=u=>sum(u.pays,p=>p.amt),ubal=u=>u.status=="cancelled"?0:Math.round((u.total-upaid(u))*100)/100,ust=u=>u.status=="cancelled"?"Cancelled":ubal(u)<=0?"Clear":(u.due&&u.due<now()?"Overdue":"Pending"),
-pkey=p=>{let d=String(p||"").replace(/\D/g,"");if(d.startsWith("92")&&d.length==12)d="0"+d.slice(2);return d},okPh=p=>{const d=pkey(p);return /^03\d{9}$/.test(d)||/^0\d{9,10}$/.test(d)},fph=p=>{const d=pkey(p);return /^03\d{9}$/.test(d)?d.slice(0,4)+"-"+d.slice(4):String(p).trim()},
-canUe=u=>me.role=="admin"||(u.by==me.u&&dk(u.ts)==now()),
-ck=u=>pkey(u.phone)||"n:"+String(u.name||"").toLowerCase(),uAc=u=>u.status!="cancelled",uSales=()=>db.udhar.filter(u=>u.type=="stock"&&u.status!="cancelled").map(u=>({ts:u.ts,qty:u.qty,cost:u.cost,total:u.total,rate:u.total/u.qty,status:"ok"}));
-let uf={q:"",from:"",to:"",c:"",st:""};
-function vUd(){const C={};db.udhar.forEach(u=>{const k=ck(u);C[k]=C[k]||{k,n:u.name,p:u.phone};C[k].n=u.name});
-return `<div class="card"><h3>Naya Udhar</h3><div class="row"><div><label>Customer Name</label><input id="un" style="width:170px" oninput="uPv()"></div><div><label>Contact Number</label><input id="up" placeholder="0300-1234567" style="width:150px" oninput="uPv()"></div><div><label>Type</label><select id="ut" onchange="uPv(2)"><option value="stock">Stock item</option><option value="other">Other (cash loan, rashan...)</option></select></div></div>
-<div class="row" style="margin-top:8px"><div id="usi"><label>Item</label><select id="ui" onchange="uPv(1)">${opt(db.items.filter(i=>act(i)&&i.qty>0))}</select></div><div id="usq"><label>Qty</label><input id="uq" type="number" min="1" value="1" style="width:70px" oninput="uPv(1)"></div><div id="uso" style="display:none"><label>Item Details</label><input id="ud2" style="width:220px" placeholder="Cash Loan / Rashan"></div><div><label>Total Bill</label><input id="ub" type="number" min="1" style="width:110px" oninput="uPv()"></div><div><label>Abhi diye (Paid)</label><input id="uy" type="number" min="0" value="0" style="width:110px" oninput="uPv()"></div><div><label>Due Date</label><input id="uu" type="date" style="width:150px"></div><div><label>Balance</label><b id="ubl"></b></div><button class="p" onclick="addUd()">Save Udhar</button></div><div id="uin" style="margin-top:6px"></div></div>
-<div class="card"><div class="row"><h3>Udhar List</h3><div><label>Search (naam / phone)</label><input id="fq" value="${esc(uf.q)}" style="width:150px" oninput="uf.q=this.value;uRef()"></div><div><label>Customer</label><select onchange="uf.c=this.value;render()"><option value="">Sab</option>${Object.values(C).map(c=>`<option value="${c.k}" ${uf.c==c.k?"selected":""}>${esc(c.n)} (${esc(c.p)})</option>`).join("")}</select></div><div><label>From</label><input type="date" value="${uf.from}" onchange="uf.from=this.value;uRef()"></div><div><label>To</label><input type="date" value="${uf.to}" onchange="uf.to=this.value;uRef()"></div><div><label>Status</label><select onchange="uf.st=this.value;uRef()">${["","Pending","Overdue","Clear","Cancelled"].map(x=>`<option value="${x}" ${uf.st==x?"selected":""}>${x||"Sab"}</option>`).join("")}</select></div><button class="p" onclick="uf={q:'',from:'',to:'',c:'',st:''};render()">Filter hatayein</button><button class="p ib" title="Excel export" onclick="exUd()">&#128229; Excel</button></div><div id="ucs"></div><div class="tw" id="utab"></div></div>`}
-function uInit(){uPv(2);uRef()}
-function uPv(c){const t=$("#ut").value=="stock",si=$("#ui"),i=si&&t?item(si.value):null,q=+$("#uq").value||0,f=i?i.price*q:0;
-$("#usi").style.display=$("#usq").style.display=t?"":"none";$("#uso").style.display=t?"none":"";
-if(c&&t)$("#ub").value=f||"";if(c==2&&!t)$("#ub").value="";
-const b=+$("#ub").value||0,y=+$("#uy").value||0,bl=b-y;$("#ubl").textContent=fmt(bl);
-const k=pkey($("#up").value),n=$("#un").value.trim().toLowerCase(),M=db.udhar.filter(u=>(k.length>=10&&pkey(u.phone)==k)||(k.length<10&&n&&u.name.toLowerCase()==n)),ob=sum(M,ubal);
-let h="";if(M.length)h+=`<span class="adj">Purana Udhar Baqi: ${fmt(ob)} (${esc(M[0].name)}, ${M.length} entry) &rarr; nayi entry ke baad ${fmt(ob+bl)}</span> `;
-if(t&&i&&b&&b!=f)h+=`<span class="adj">Customer Adjustment: ${b<f?"Discount":"Extra"} ${fmt(Math.abs(f-b))} (Fixed ${fmt(f)} &rarr; Bill ${fmt(b)})</span> `;
-if(y>b)h+=`<span class="adj" style="background:#f8cbcb;color:#9c0006">Paid, Total Bill se zyada hai</span>`;
-$("#uin").innerHTML=h}
-function addUd(){const nm2=$("#un").value.trim(),ph=$("#up").value.trim(),t=$("#ut").value=="stock",ad=me.role=="admin",b=+$("#ub").value,y=$("#uy").value===""?0:+$("#uy").value,du=$("#uu").value;
-if(ph&&!okPh(ph))return alert("Number sahi likhein, jaise 0300-1234567 (ya khali chhor dein).");
-let i=null,q=1,dtl;
-if(t){i=item($("#ui").value);q=parseInt($("#uq").value);if(!i)return alert("Item chunein.");if(!(q>=1))return alert("Qty 1 ya zyada likhein.");if(q>i.qty)return alert("Stock kam hai. Sirf "+i.qty+" bachi hain.");dtl=i.name+" x"+q;
-if(!(b>0))return alert("Total Bill likhein.");if(b<i.cost*q)return alert("Is total par loss hoga. Minimum total "+fmt(i.cost*q)+" hona chahiye.");if(!ad&&b>i.price*q)return alert("Total Fixed Total ("+fmt(i.price*q)+") se zyada nahi ho sakta.")}
-else{dtl=$("#ud2").value.trim();if(!dtl)return alert("Item Details likhein (jaise Cash Loan, Rashan).");if(!(b>0))return alert("Total Bill likhein.")}
-if(!(y>=0)||y>b)return alert("Paid amount 0 se Total Bill ke beech hona chahiye. Paid, Total Bill se zyada nahi ho sakta.");
-if(y<b&&du&&du<now())return alert("Due Date aaj ya aaj ke baad ki likhein.");
-if(y<b&&!du&&!confirm("Due Date nahi likhi. Bina Due Date ke ye kabhi Overdue nahi hoga. Phir bhi save karein?"))return;
-if(db.udhar.find(x=>x.by==me.u&&pkey(x.phone)==pkey(ph)&&x.total==b&&x.details==dtl&&Date.now()-x.ts<120000)&&!confirm("Ye udhar abhi abhi save ho chuka hai. Phir bhi save karein?"))return;
-const ts=Date.now(),u={id:db.uid++,ts,name:nm2||"Unknown",phone:ph?fph(ph):"",type:t?"stock":"other",iid:i?i.id:null,qty:q,cost:i?i.cost:0,details:dtl,total:b,fixed:i?i.price*q:null,due:y<b?du:"",by:me.u,status:"ok",pays:[],hist:[]};
-if(y>0)u.pays.push({ts,amt:y,by:me.u,note:"Pehli payment"});
-if(i)i.qty-=q;db.udhar.push(u);log("Udhar Add",uidf(u),"",`${nm2} | ${dtl} | total ${b} | paid ${y}`);save();render()}
-function uList(){const q=uf.q.trim().toLowerCase(),qd=q.replace(/\D/g,"");return db.udhar.filter(u=>(!q||u.name.toLowerCase().includes(q)||(qd&&pkey(u.phone).includes(qd)))&&(!uf.c||ck(u)==uf.c)&&(!uf.from||dk(u.ts)>=uf.from)&&(!uf.to||dk(u.ts)<=uf.to)&&(!uf.st||ust(u)==uf.st)).sort((a,b)=>b.ts-a.ts)}
-function uSet(k){uf.c=k;render()}
-function uRow(u){const s=ust(u),b=ubal(u),aj=u.fixed!=null&&u.fixed!=u.total;
-return `<tr class="${s=="Overdue"?"ov":s=="Cancelled"?"x":""}"><td>${uidf(u)}<td>${dk(u.ts)}<td>${tm(u.ts)}<td>${esc(u.name)}<td>${esc(u.phone)}<td>${esc(u.details)}${u.editTs?`<br><small>Edit: ${dt(u.editTs)} (${esc(u.editBy)})</small>`:""}${aj?`<br><span class="adj">Customer Adjustment ${u.total<u.fixed?"-":"+"}${fmt(Math.abs(u.fixed-u.total))}</span>`:""}<td>${fmt(u.total)}<td>${fmt(upaid(u))}<td><b>${fmt(b)}</b><td class="${s=="Overdue"?"out":s=="Clear"?"cl":s=="Cancelled"?"":"low"}">${s}<td>${s=="Clear"||s=="Cancelled"||!u.due?"-":u.due}<td><details class="m"><summary>&#8943;</summary><div class="mm">${canUe(u)&&s!="Cancelled"?`<a onclick="editUd(${u.id})">Edit</a><a onclick="cancelUd(${u.id})">Cancel Order (Wapis)</a>`:""}${canUe(u)&&s=="Cancelled"?`<a onclick="restoreUd(${u.id})">Activate Again (Restore)</a>`:""}${b>0?`<a onclick="payUd(${u.id})">Add Payment</a>`:""}<a onclick="histUd(${u.id})">View History</a>${b>0?`<a onclick="remUd(${u.id})">Send Reminder (WhatsApp)</a>`:""}</div></details></tr>`}
-function uRef(){const L=uList(),LA=L.filter(uAc),C={};LA.forEach(u=>{const k=ck(u),c=C[k]=C[k]||{k,n:u.name,p:u.phone,e:0,t:0,pd:0};c.e++;c.t+=u.total;c.pd+=upaid(u)});
-const CL=Object.values(C).filter(c=>c.t-c.pd>0).sort((a,b)=>(b.t-b.pd)-(a.t-a.pd));
-$("#ucs").innerHTML=CL.length?`<h3 style="margin-top:12px">Customer-wise Total Udhar Baqi</h3><div class="tw" style="min-height:0;max-height:220px;overflow:auto"><table><tr><th>Customer<th>Contact<th>Entries<th>Total Bill<th>Paid<th>Baqi</tr>${CL.map(c=>`<tr><td><a style="cursor:pointer;color:#1F4E78;text-decoration:underline" onclick="uSet('${c.k}')">${esc(c.n)}</a><td>${esc(c.p)}<td>${c.e}<td>${fmt(c.t)}<td>${fmt(c.pd)}<td><b>${fmt(c.t-c.pd)}</b></tr>`).join("")}</table></div><h3 style="margin-top:12px">Udhar Entries</h3>`:"";
-$("#utab").innerHTML=`<table><tr><th>Udhar ID<th>Date<th>Time<th>Customer<th>Contact<th>Item Details<th>Total Bill<th>Amount Paid<th>Balance<th>Status<th>Due Date<th>Action</tr>${L.map(uRow).join("")}<tr><th colspan="6">Total<th>${fmt(sum(LA,u=>u.total))}<th>${fmt(sum(LA,upaid))}<th>${fmt(sum(LA,ubal))}<th colspan="3"></tr></table>`}
-function cancelUd(id){const u=udh(id);if(!u||!canUe(u)||u.status=="cancelled")return;const pd=upaid(u),o=u.type=="stock"?item(u.iid):null;if(!confirm("Ye udhar order cancel karein?"+(u.type=="stock"?" Qty "+u.qty+" stock mein wapas chali jayegi.":"")+(pd>0?"\nIs par Rs "+fmt(pd)+" mil chuke hain, wo customer ko wapis karne hon ge.":"")))return;
-if(o)o.qty+=u.qty;u.status="cancelled";u.editTs=Date.now();u.editBy=me.u;u.hist.push({ts:Date.now(),by:me.u,txt:"Order cancel / wapis"+(pd>0?" (mile hue Rs "+fmt(pd)+" wapis karne hain)":"")});log("Udhar Cancel",uidf(u),"Baqi "+(u.total-pd),"Cancelled");save();render()}
-function restoreUd(id){const u=udh(id);if(!u||!canUe(u)||u.status!="cancelled")return;const o=u.type=="stock"?item(u.iid):null;if(u.type=="stock"){if(!o)return alert("Ye item delete ho chuka hai, udhar dobara active nahi ho sakta.");if(o.qty<u.qty)return alert("Stock kam hai. "+o.name+" ki sirf "+o.qty+" bachi hain.")}if(!confirm("Ye udhar dobara active karein?"))return;
-if(o)o.qty-=u.qty;u.status="ok";u.editTs=Date.now();u.editBy=me.u;u.hist.push({ts:Date.now(),by:me.u,txt:"Restored / Activated again"});log("Udhar Restore",uidf(u),"Cancelled","Baqi "+ubal(u));save();render()}
-function payUd(id){const u=udh(id),b=ubal(u);if(b<=0)return alert("Is udhar ka balance 0 hai, payment ki zaroorat nahi.");
-showMd(`<h3>Add Payment - ${uidf(u)}</h3><p>${esc(u.name)}<br>Total ${fmt(u.total)} | Mil chuka ${fmt(upaid(u))} | <b>Baqi ${fmt(b)}</b></p><label>Date / Time (auto)</label><input value="${dt(Date.now())}" disabled><label>Amount</label><input id="pa" type="number" min="1" max="${b}"><label>Received By</label><input value="${esc(me.u)}" disabled><label>Note (optional)</label><input id="pn"><button class="p" onclick="savePay(${id})">Save Payment</button> <button onclick="closeMd()">Cancel</button>`)}
-function savePay(id){const u=udh(id),b=ubal(u),a=+$("#pa").value;if(!(a>0))return alert("Amount likhein.");if(a>b)return alert("Amount Udhar Balance ("+fmt(b)+") se zyada nahi ho sakta.");if(!confirm("Rs "+fmt(a)+" ki payment save karein?"))return;
-u.pays.push({ts:Date.now(),amt:a,by:me.u,note:$("#pn").value.trim()});u.hist.push({ts:Date.now(),by:me.u,txt:"Payment "+fmt(a)+" mili (baqi "+fmt(b-a)+")"});log("Udhar Payment",uidf(u),"Baqi "+b,"Baqi "+(Math.round((b-a)*100)/100));save();closeMd();render()}
-function histUd(id){const u=udh(id);showWd(`<h3>${uidf(u)} - ${esc(u.name)}</h3><p>${esc(u.details)}<br>Entry: ${dt(u.ts)} (${esc(u.by)})<br>Total ${fmt(u.total)} | Mila ${fmt(upaid(u))} | Baqi <b>${fmt(ubal(u))}</b> | ${ust(u)}</p><b>Payments</b><table><tr><th>Date-Time<th>Amount<th>Received By<th>Note</tr>${u.pays.map(p=>`<tr><td>${dt(p.ts)}<td>${fmt(p.amt)}<td>${esc(p.by)}<td>${esc(p.note||"")}</tr>`).join("")||"<tr><td colspan=4>Abhi koi payment nahi.</tr>"}</table><p><b>Changes</b></p>${u.hist.map(h=>`<div>${dt(h.ts)} (${esc(h.by)}): ${esc(h.txt)}</div>`).join("")||"Koi change nahi hua."}<p><button onclick="closeMd()">Close</button></p>`)}
-function remUd(id){const u=udh(id),b=ubal(u);if(b<=0)return;const d=pkey(u.phone);if(!d)return alert("Is customer ka number save nahi hai.");const m=`Assalam o Alaikum ${u.name}, aap ka ${nm()} mein Rs ${fmt(b)} udhar baqi hai${u.due?" (Due date: "+u.due+")":""}. Meherbani karke jald ada karein. Shukriya.`;window.open("https://wa.me/92"+d.slice(1)+"?text="+encodeURIComponent(m),"_blank")}
-function editUd(id){const u=udh(id);if(!canUe(u))return alert("Ye entry aap edit nahi kar sakte.");
-showMd(`<h3>Udhar Edit - ${uidf(u)}</h3><label>Customer Name</label><input id="uen" value="${esc(u.name)}"><label>Contact Number</label><input id="uep" value="${esc(u.phone)}">${u.type=="stock"?`<p>Item: <b>${esc(u.details)}</b> (item/qty edit nahi hoti)</p>`:`<label>Item Details</label><input id="ued" value="${esc(u.details)}">`}<label>Total Bill (Mila: ${fmt(upaid(u))})</label><input id="uet" type="number" min="1" value="${u.total}"><label>Due Date</label><input id="ueu" type="date" value="${u.due||""}"><button class="p" onclick="saveUd(${id})">Save Edit</button> <button onclick="closeMd()">Cancel</button>`)}
-function saveUd(id){const u=udh(id),ad=me.role=="admin",n=$("#uen").value.trim(),ph=$("#uep").value.trim(),d=u.type=="stock"?u.details:$("#ued").value.trim(),b=+$("#uet").value,du=$("#ueu").value;
-if(ph&&!okPh(ph))return alert("Number sahi likhein, jaise 0300-1234567 (ya khali chhor dein).");if(!d)return alert("Item Details likhein.");if(!(b>0))return alert("Total Bill likhein.");
-if(b<upaid(u))return alert("Total Bill, ab tak mile paisay ("+fmt(upaid(u))+") se kam nahi ho sakta.");
-if(u.type=="stock"&&b<u.cost*u.qty)return alert("Is total par loss hoga. Minimum total "+fmt(u.cost*u.qty)+" hona chahiye.");
-if(!ad&&u.fixed!=null&&b>u.fixed)return alert("Total Fixed Total ("+fmt(u.fixed)+") se zyada nahi ho sakta.");
-const a=`${u.name} | ${u.phone} | ${u.details} | total ${u.total} | due ${u.due||"-"}`,c=`${n} | ${fph(ph)} | ${d} | total ${b} | due ${du||"-"}`;if(a==c)return closeMd();
-if(!confirm("Kya aap is naye edit ko save karna chahte hain?"))return closeMd();
-Object.assign(u,{name:n||"Unknown",phone:ph?fph(ph):"",details:d,total:b,due:du,editTs:Date.now(),editBy:me.u});u.hist.push({ts:Date.now(),by:me.u,txt:a+" -> "+c});log("Udhar Edit",uidf(u),a,c);save();closeMd();render()}
-function exUd(){const L=uList().sort((a,b)=>a.ts-b.ts);if(!L.length)return alert("Export ke liye koi udhar nahi hai.");
-const H=["Udhar ID","Date","Time","Customer","Contact","Item Details","Total Bill","Amount Paid","Balance","Status","Due Date"],n=L.length+1,
-rows=L.map(u=>{const s=ust(u),y=v=>s=="Overdue"?{v,s:3}:v;return[uidf(u),dk(u.ts),tm(u.ts),u.name,u.phone,u.details,u.total,upaid(u),ubal(u),s,s=="Clear"||!u.due?"-":u.due].map(y)}),
-T=H.map((h,j)=>j==0?{v:"Total",s:2}:[6,7,8].includes(j)?{f:`SUMIF(J2:J${n},"<>Cancelled",${cn(j)}2:${cn(j)}${n})`,s:2}:{v:"",s:2});
-dlf(xlsx([{name:"Udhar",w:[10,12,10,22,15,30,12,12,12,10,12],rows:[hd(H),...rows,T]}]),"udhar-"+now()+".xlsx")}
-function udSum(){const A=db.udhar.filter(uAc),t=now(),bal=A.filter(u=>ubal(u)>0),tw=sum(A,u=>sum(u.pays.filter(p=>dk(p.ts)==t),p=>p.amt)),C={};
-bal.forEach(u=>{const k=ck(u),c=C[k]=C[k]||{n:u.name,p:u.phone,b:0,ov:0,due:""};c.b+=ubal(u);if(ust(u)=="Overdue"){c.ov+=ubal(u);if(!c.due||u.due<c.due)c.due=u.due}});
-const L=Object.values(C),ov=L.filter(c=>c.ov>0).sort((a,b)=>b.ov-a.ov),top=[...L].sort((a,b)=>b.b-a.b).slice(0,5);
-return `<div class="grid"><div class="k">Total Udhar Baqi (Rs)<b>${fmt(sum(bal,ubal))}</b></div><div class="k">Aaj Wasooli (Rs)<b>${fmt(tw)}</b></div><div class="k">Overdue Customers<b>${ov.length}</b></div></div>
-<div class="card"><h3>Overdue Customers (${ov.length})</h3><div class="tw" style="min-height:0"><table><tr><th>Customer<th>Contact<th>Overdue Baqi<th>Sab se purani Due Date</tr>${ov.map(c=>`<tr class="ov"><td>${esc(c.n)}<td>${esc(c.p)}<td>${fmt(c.ov)}<td>${c.due}</tr>`).join("")||"<tr><td colspan=4>Koi overdue nahi."}</table></div></div>
-<div class="card"><h3>Top 5 sabse zyada Udhar wale Customers</h3><div class="tw" style="min-height:0"><table><tr><th>#<th>Customer<th>Contact<th>Total Baqi</tr>${top.map((c,i)=>`<tr><td>${i+1}<td>${esc(c.n)}<td>${esc(c.p)}<td><b>${fmt(c.b)}</b></tr>`).join("")||"<tr><td colspan=4>Abhi koi udhar baqi nahi."}</table></div></div>`}
-// ---- Dashboard
-function vDash(){const t=now(),m=t.slice(0,7),y=t.slice(0,4),S=db.sales.filter(s=>s.status!="cancelled").concat(uSales()),T=S.filter(s=>dk(s.ts)==t),M=S.filter(s=>dk(s.ts).slice(0,7)==m),k=(a,b)=>`<div class="k">${a}<b>${b}</b></div>`,lo=db.items.filter(i=>i.qty<=db.low);
-let r="";for(let i=1;i<=12;i++){const A=S.filter(s=>dk(s.ts).slice(0,7)==y+"-"+String(i).padStart(2,"0"));r+=`<tr><td>${MN[i-1]}<td>${fmt(sum(A,tot))}<td>${fmt(sum(A,prof))}<td>${sum(A,s=>s.qty)}</tr>`}
-return `<div class="grid">${k("Aaj ki Sale (Rs)",fmt(sum(T,tot)))}${k("Aaj ka Profit (Rs)",fmt(sum(T,prof)))}${k("Aaj bika (Qty)",sum(T,s=>s.qty))}${k("Is mahine ki Sale (Rs)",fmt(sum(M,tot)))}${k("Is mahine ka Profit (Rs)",fmt(sum(M,prof)))}${k("Stock Value (Rs)",fmt(sum(db.items,i=>i.qty*i.cost)))}</div>
-${udSum()}<div class="card"><h3>Low / Out Stock (${lo.length})</h3><div class="tw"><table><tr><th>Item<th>Qty<th>Status</tr>${lo.map(i=>`<tr><td>${esc(i.name)}<td>${i.qty}<td class="${i.qty<=0?"out":"low"}">${i.qty<=0?"OUT":"LOW"}</tr>`).join("")||"<tr><td colspan=3>Sab items theek hain.</tr>"}</table></div></div>
-<div class="card"><h3>Mahine ke hisab se ${y}</h3><div class="tw"><table><tr><th>Mahina<th>Sale (Rs)<th>Profit (Rs)<th>Qty</tr>${r}</table></div></div>`}
-// ---- Stock
-const stt=i=>i.qty<=0?"Out of Stock":i.qty<=db.low?"Low":"Available",stc=i=>i.qty<=0?"out":i.qty<=db.low?"low":"";
-function vSV(){const c=db.set.staffCost;return `<div class="card"><h3>Stock (sirf dekhne ke liye)</h3><div class="tw"><table><tr><th>Item<th>Current Qty${c?"<th>Cost":""}<th>Status</tr>${db.items.filter(act).map(i=>`<tr><td>${esc(i.name)}<td>${i.qty}${c?`<td>${fmt(i.cost)}`:""}<td class="${stc(i)}">${stt(i)}</tr>`).join("")}</table></div></div>`}
-function vStock(){const R=a=>a.map(i=>`<tr class="${act(i)?"":"x"}"><td>${esc(i.name)}<td><input type="number" min="0" value="${i.qty}" onchange="chgQty(${i.id},this)"><td><input type="number" value="${i.cost}" onchange="upd(${i.id},'cost',this.value)"><td><input type="number" value="${i.price}" onchange="upd(${i.id},'price',this.value)"><td class="${stc(i)}">${act(i)?stt(i):"Inactive"}<td><button class="p" onclick="togAct(${i.id})">${act(i)?"Inactive karein":"Active karein"}</button> <button class="d" title="Item delete karein" onclick="delItem(${i.id})">&#10005;</button></tr>`).join("");
-return `<div class="card"><h3>Naya Item</h3><div class="row"><div><label>Naam</label><input id="an"></div><div><label>Qty</label><input id="aq" type="number" min="0" style="width:80px"></div><div><label>Cost Rate</label><input id="ac" type="number" min="0" style="width:90px"></div><div><label>Sale Price</label><input id="ap" type="number" min="0" style="width:90px"></div><button class="p" onclick="addItem()">Add Item</button></div></div>
-<div class="card"><h3>Stock</h3><div class="tw"><table><tr><th>Item<th>Current Qty<th>Cost<th>Sale Price<th>Status<th></tr>${R(db.items)}</table></div></div>`}
-function vSet(){const sw=k=>`<button class="p" onclick="tg('${k}')">${db.set[k]?"ON":"OFF"}</button>`;return `<div class="card"><h3>System Settings</h3><div class="row"><div><label>System / Shop ka Naam</label><input value="${esc(nm())}" style="width:260px" onchange="setNm(this.value)"></div></div></div>
-<div class="card"><h3>Staff Settings</h3><div class="row"><div><label>Staff Stock View</label>${sw("staffStock")}</div><div><label>Staff ko Cost dikhayein</label>${sw("staffCost")}</div><div><label>Staff ko Udhar menu</label>${sw("staffUdhar")}</div><div><label>Low-Stock-Limit</label><input type="number" min="0" value="${db.low}" style="width:70px" onchange="db.low=+this.value;save();render()"></div></div></div>`}
-function setNm(v){v=v.trim();if(!v)return render();log("Setting","Shop Name",nm(),v);db.set.name=v;save();render()}
-function delItem(id){const i=item(id),h=db.sales.some(s=>s.iid==id)||db.restocks.some(r=>r.iid==id)||db.udhar.some(u=>u.iid==id);if(!confirm(i.name+" ko list se delete karein?"+(h?"\nIs item ki purani sales/restock entries hain, wo record mein rahengi. Behtar hai Inactive karein.":"")))return;db.items=db.items.filter(x=>x.id!=id);log("Item Delete",i.name,i.qty,"");save();render()}
-function tg(k){db.set[k]=!db.set[k];save();render()}
-async function chgQty(id,el){const i=item(id),n=Number(el.value);if(el.value===""||!Number.isInteger(n)||n<0){alert("Qty 0 ya zyada poora number honi chahiye.");return render()}if(n==i.qty)return;const w=await ask("Qty kyun badli? (optional, khali chhor sakte hain)");if(w===null)return render();log("Qty Change",i.name,i.qty,n,w);i.qty=n;save();render()}
-function upd(id,f,v){const i=item(id),n=Number(v);if(v===""||n<0)return render();if(n!=i[f])log(f=="cost"?"Cost Change":"Price Change",i.name,i[f],n);i[f]=n;save();render()}
-function addItem(){const n=$("#an").value.trim();if(!n)return alert("Naam likhein.");if(db.items.find(i=>i.name.toLowerCase()==n.toLowerCase()))return alert("Ye item pehle se hai.");const i={id:db.nid++,name:n,qty:Math.max(0,+$("#aq").value||0),cost:+$("#ac").value||0,price:+$("#ap").value||0};db.items.push(i);log("New Item",n,"",i.qty);save();render()}
-function togAct(id){const i=item(id);if(!confirm(act(i)?"Item inactive karein? Purana record rahega.":"Item dobara active karein?"))return;i.active=!act(i);log(act(i)?"Item Active":"Item Inactive",i.name,"","");save();render()}
-// ---- Restock
-function vRe(){const L=db.restocks.map((r,x)=>({r,x})).slice(-50).reverse();return `<div class="card"><h3>Naya maal aaya</h3><div class="row"><div><label>Item</label><select id="ri">${opt(db.items.filter(act))}</select></div><div><label>Qty</label><input id="rq" type="number" min="1" style="width:80px"></div><div><label>Cost Rate (khali = purana)</label><input id="rc" type="number" min="0" style="width:110px"></div><button class="p" onclick="addRe()">Save Restock</button></div></div>
-<div class="card"><h3>Restock list (edit ho sakti hai)</h3><div class="tw"><table><tr><th>Date<th>Item<th>Qty<th>Cost<th></tr>${L.map(({r,x})=>`<tr><td>${dt(r.ts)}${r.edited?"<br><small>edited</small>":""}<td>${esc(r.name)}<td>${r.qty}<td>${fmt(r.cost)}<td><button class="p" onclick="editRe(${x})">Edit</button></tr>`).join("")}</table></div></div>`}
-function addRe(){const i=item($("#ri").value),q=parseInt($("#rq").value),c=+$("#rc").value||i.cost;if(!(q>=1))return alert("Qty likhein.");i.qty+=q;i.cost=c;db.restocks.push({ts:Date.now(),iid:i.id,name:i.name,qty:q,cost:c,by:me.u});log("Restock",i.name,"",q);save();render()}
-function editRe(x){const r=db.restocks[x];if(!item(r.iid))return alert("Ye item delete ho chuka hai, edit nahi ho sakta.");showMd(`<h3>Restock Edit</h3><label>Item</label><select id="ei">${db.items.filter(i=>act(i)||i.id==r.iid).map(i=>`<option value="${i.id}" ${i.id==r.iid?"selected":""}>${esc(i.name)}</option>`).join("")}</select><label>Qty</label><input id="eq" type="number" min="1" value="${r.qty}"><label>Cost</label><input id="er" type="number" min="0" value="${r.cost}"><button class="p" onclick="saveRe(${x})">Save Edit</button> <button onclick="closeMd()">Cancel</button>`)}
-function saveRe(x){const r=db.restocks[x],o=item(r.iid),n=item($("#ei").value),q=parseInt($("#eq").value),c=+$("#er").value;if(!(q>=1)||!(c>=0))return alert("Qty 1 ya zyada aur cost sahi likhein.");
-if(o.qty-r.qty+(n.id==o.id?q:0)<0)return alert("Is change se "+o.name+" ki qty minus ho jayegi (kuch maal bik chuka hai).");
-const a=`${r.name} x${r.qty} cost ${r.cost}`,b=`${n.name} x${q} cost ${c}`;if(a==b)return closeMd();if(!confirm("Kya aap is edit ko save karna chahte hain?"))return closeMd();
-o.qty-=r.qty;n.qty+=q;n.cost=c;Object.assign(r,{iid:n.id,name:n.name,qty:q,cost:c,ts0:r.ts0||r.ts,ts:Date.now(),edited:Date.now()});log("Restock Edit",n.name,a,b);save();closeMd();render()}
-let lgf={from:"",to:"",q:""};
-const lList=()=>{const q=lgf.q.trim().toLowerCase();return db.logs.filter(l=>(!lgf.from||dk(l.ts)>=lgf.from)&&(!lgf.to||dk(l.ts)<=lgf.to)&&(!q||[l.type,l.ref,l.by,l.why,l.old,l.new].join(" ").toLowerCase().includes(q)))};
-function vLog(){const F=lList(),f=lgf.from||lgf.to||lgf.q;return `<div class="card"><h3>Logs (${f?F.length+" mile, ":""}aakhri 150 dikh rahe hain)</h3><div class="row" style="margin-bottom:10px"><div><label>Search</label><input value="${esc(lgf.q)}" style="width:150px" onchange="lgf.q=this.value;render()"></div><div><label>Start From</label><input type="date" value="${lgf.from}" onchange="lgf.from=this.value;render()"></div><div><label>To</label><input type="date" value="${lgf.to}" onchange="lgf.to=this.value;render()"></div><button class="p" onclick="lgf={from:'',to:'',q:''};render()">Filter hatayein</button>${me.role=="admin"?`<button class="d" style="padding:8px 14px" onclick="clrLogs()">Clear Logs</button>`:""}</div><div class="tw"><table><tr><th>Date-Time<th>Type<th>Item/Ref<th>Old<th>New<th>By<th>Reason</tr>${F.slice(-150).reverse().map(l=>`<tr><td>${dt(l.ts)}<td>${esc(l.type)}<td>${esc(l.ref)}<td>${esc(l.old)}<td>${esc(l.new)}<td>${esc(l.by)}<td>${esc(l.why)}</tr>`).join("")||"<tr><td colspan=7>Koi log nahi.</tr>"}</table></div></div>`}
-function clrLogs(){if(me.role!="admin")return;const F=lList(),f=lgf.from||lgf.to||lgf.q;if(!F.length)return alert("Clear karne ke liye koi log nahi hai.");if(!confirm(f?"Filter wale "+F.length+" logs delete karein? Baqi logs rahenge.":"Saare "+F.length+" logs delete karein?"))return;const S=new Set(F);db.logs=db.logs.filter(l=>!S.has(l));log("Logs Clear","",F.length+" logs delete","");save();render()}
-// ---- Users
-function vUsr(){return `<div class="card"><h3>Naya User</h3><div class="row"><div><label>Username</label><input id="nu"></div><div><label>Password</label><input id="np"></div><div><label>Role</label><select id="nr"><option>staff</option><option>admin</option></select></div><button class="p" onclick="addUser()">Add User</button></div></div>
-<div class="card"><h3>Users</h3><table><tr><th>Username<th>Role<th></tr>${db.users.map((u,ix)=>`<tr><td>${esc(u.u)}<td>${u.role}<td><button class="p" onclick="renUser(${ix})">Username edit</button> <button class="p" onclick="resetPw('${esc(u.u)}')">Password reset</button> ${u.u==me.u?"":`<button class="d" onclick="delUser('${esc(u.u)}')">x</button>`}</tr>`).join("")}</table></div>`}
-async function addUser(){const u=$("#nu").value.trim(),p=$("#np").value;if(!u||p.length<4)return alert("Username aur kam az kam 4 harf ka password likhein.");if(db.users.find(x=>x.u==u))return alert("Ye username pehle se hai.");db.users.push({u,p:await H(p),role:$("#nr").value});save();render()}
-function delUser(u){if(confirm(u+" ko delete karein?"))db.users=db.users.filter(x=>x.u!=u),save(),render()}
-async function renUser(ix){const U=db.users[ix],o=U.u,v=await ask("Naya username ("+o+" ki jagah):");if(v===null)return;const n=v.trim();if(!n||n==o)return;if(db.users.find(x=>x.u.toLowerCase()==n.toLowerCase()))return alert("Ye username pehle se hai.");if(!confirm(o+" ka username "+n+" kar dein? Purani entries bhi naye naam se jud jayengi."))return;
-db.sales.forEach(s=>{if(s.by==o)s.by=n;if(s.editBy==o)s.editBy=n;(s.hist||[]).forEach(h=>{if(h.by==o)h.by=n})});
-db.udhar.forEach(u=>{if(u.by==o)u.by=n;if(u.editBy==o)u.editBy=n;u.pays.forEach(p=>{if(p.by==o)p.by=n});u.hist.forEach(h=>{if(h.by==o)h.by=n})});
-db.restocks.forEach(r=>{if(r.by==o)r.by=n});db.logs.forEach(l=>{if(l.by==o)l.by=n});U.u=n;if(me.u==o)me.u=n;log("User Rename",o,o,n);save();render()}
-async function resetPw(u){const p=await ask(u+" ka naya password (kam az kam 4 harf):");if(!p||p.length<4)return;db.users.find(x=>x.u==u).p=await H(p);save();alert("Password badal gaya.")}
-// ---- Backup
-function vBk(){return `<div class="card"><h3>Backup</h3><button class="p" onclick="exp()">Backup Download (JSON)</button> <button class="p ib" onclick="expX()">&#128229; Backup Download (Excel)</button></div><div class="card"><h3>Backup se wapas laayein</h3><div class="row"><div><label>JSON file</label><input type="file" accept=".json" onchange="imp(this.files[0]);this.value=''"></div><div><label>Excel file (.xlsx)</label><input type="file" accept=".xlsx" onchange="impX(this.files[0]);this.value=''"></div></div></div><div class="card"><h3>Mera password</h3><button class="p" onclick="resetPw(me.u)">Password badlein</button></div>`}
-function exp(){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(db)],{type:"application/json"}));a.download="shop-backup-"+now()+".json";a.click()}
-function imp(f){if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!d.items||!d.sales||!d.users)throw 0;if(!confirm("Mojooda data replace ho jayega. Jari rakhein?"))return;db=d;fix();save();me=null;render()}catch(e){alert("Ye sahi backup file nahi hai.")}};r.readAsText(f)}
-// ---- Excel (no library)
-const crcT=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})(),crc=b=>{let c=-1;for(const x of b)c=crcT[(c^x)&255]^(c>>>8);return(c^-1)>>>0};
-function zip(F){const e=new TextEncoder(),L=[],C=[];let o=0;for(const[n,d]of F){const nb=e.encode(n),b=e.encode(d),c=crc(b),h=new DataView(new ArrayBuffer(30)),g=new DataView(new ArrayBuffer(46));
-h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(12,33,true);h.setUint32(14,c,true);h.setUint32(18,b.length,true);h.setUint32(22,b.length,true);h.setUint16(26,nb.length,true);
-g.setUint32(0,0x02014b50,true);g.setUint16(4,20,true);g.setUint16(6,20,true);g.setUint16(14,33,true);g.setUint32(16,c,true);g.setUint32(20,b.length,true);g.setUint32(24,b.length,true);g.setUint16(28,nb.length,true);g.setUint32(42,o,true);
-L.push(new Uint8Array(h.buffer),nb,b);C.push(new Uint8Array(g.buffer),nb);o+=30+nb.length+b.length}
-const cs=C.reduce((a,x)=>a+x.length,0),z=new DataView(new ArrayBuffer(22));z.setUint32(0,0x06054b50,true);z.setUint16(8,F.length,true);z.setUint16(10,F.length,true);z.setUint32(12,cs,true);z.setUint32(16,o,true);
-return new Blob([...L,...C,new Uint8Array(z.buffer)],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})}
-const cn=n=>{let s="";n++;while(n){s=String.fromCharCode(65+(n-1)%26)+s;n=Math.floor((n-1)/26)}return s};
-function xlsx(S){const X='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',NS='xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"',
-cell=(v,r,i)=>{let st=0,f;if(v&&typeof v=="object"){st=v.s||0;f=v.f;v=v.v}const rf=cn(i)+(r+1),a=st?` s="${st}"`:"";if(f)return`<c r="${rf}"${a}><f>${esc(f)}</f></c>`;if(typeof v=="number"&&isFinite(v))return`<c r="${rf}"${a}><v>${v}</v></c>`;return`<c r="${rf}"${a} t="inlineStr"><is><t xml:space="preserve">${esc(v==null?"":v)}</t></is></c>`};
-const F=[["[Content_Types].xml",X+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+S.map((_,k)=>`<Override PartName="/xl/worksheets/sheet${k+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")+"</Types>"],
-["_rels/.rels",X+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
-["xl/workbook.xml",X+`<workbook ${NS} xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${S.map((s,k)=>`<sheet name="${esc(s.name)}" sheetId="${k+1}" r:id="rId${k+1}"/>`).join("")}</sheets></workbook>`],
-["xl/_rels/workbook.xml.rels",X+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+S.map((_,k)=>`<Relationship Id="rId${k+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${k+1}.xml"/>`).join("")+`<Relationship Id="rId${S.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],
-["xl/styles.xml",X+`<styleSheet ${NS}><fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F4E78"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF2CC"/></patternFill></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="4"><xf/><xf fontId="1" fillId="2" applyFont="1" applyFill="1"/><xf fontId="2" fillId="3" applyFont="1" applyFill="1"/><xf fillId="3" applyFill="1"/></cellXfs></styleSheet>`]];
-S.forEach((s,k)=>F.push([`xl/worksheets/sheet${k+1}.xml`,X+`<worksheet ${NS}><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${s.w.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join("")}</cols><sheetData>${s.rows.map((r,i)=>`<row r="${i+1}">${r.map((v,j)=>cell(v,i,j)).join("")}</row>`).join("")}</sheetData></worksheet>`]));
-return zip(F)}
-const dlf=(b,n)=>{const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=n;a.click()},hd=a=>a.map(h=>({v:h,s:1}));
-function expSales(){const ad=me.role=="admin",A=sList().reverse(),d=sfl.from==sfl.to?(sfl.from||now()):(sfl.from||"start")+"_to_"+(sfl.to||"end");if(!A.length)return alert("Is filter mein koi sale nahi hai.");
-const H=["Entry (Date/Time)","Item","Qty","Rate","Fixed Total","Customer Total","Customer Paid"].concat(ad?["Profit","By"]:[],["Status","Note"]),n=A.length+1,sc=cn(H.length-2),
-rows=A.map(s=>{const aj=fx(s)!=tot(s),y=v=>aj?{v,s:3}:v;return[dt(s.ts),s.name,s.qty,s.rate,fx(s),tot(s),paid(s)].concat(ad?[prof(s),s.by]:[],[s.status=="cancelled"?"Cancelled":"OK",aj?"Customer Adjustment "+(tot(s)-fx(s)):""]).map(y)}),
-sm=[2,4,5,6].concat(ad?[7]:[]),T=H.map((h,j)=>j==0?{v:"Total",s:2}:sm.includes(j)?{f:`SUMIF(${sc}2:${sc}${n},"OK",${cn(j)}2:${cn(j)}${n})`,s:2}:{v:"",s:2});
-dlf(xlsx([{name:"Sales "+d,w:[20,28,7,9,12,14,13].concat(ad?[11,12]:[],[11,26]),rows:[hd(H),...rows,T]}]),"sales-"+d+".xlsx")}
-function expX(){const t=v=>v==null?"":v,B=a=>a.map(h=>({v:h,s:1}));dlf(xlsx([
-{name:"Items",w:[8,32,9,9,9,9],rows:[B(["ID","Name","Qty","Cost","Price","Active"]),...db.items.map(i=>[i.id,i.name,i.qty,i.cost,i.price,act(i)?"Yes":"No"])]},
-{name:"Sales",w:[8,16,8,28,7,9,9,11,10,10,11,16,10,22,40],rows:[B(["ID","Time","ItemID","Item","Qty","Rate","Cost","Total","Paid","By","Status","EditTime","EditBy","Date/Time","History"]),...db.sales.map(s=>[s.id,s.ts,s.iid,s.name,s.qty,s.rate,s.cost,tot(s),paid(s),s.by,s.status,t(s.editTs),t(s.editBy),dt(s.ts),JSON.stringify(s.hist||[])])]},
-{name:"Restocks",w:[16,8,28,7,9,10,12,22],rows:[B(["Time","ItemID","Item","Qty","Cost","By","Edited","Date/Time"]),...db.restocks.map(r=>[r.ts,r.iid,r.name,r.qty,r.cost,t(r.by),t(r.edited),dt(r.ts)])]},
-{name:"Udhar",w:[8,16,22,16,8,8,30,7,9,10,10,12,10,10,16,10,40],rows:[B(["ID","Time","Name","Phone","Type","ItemID","Item","Qty","Cost","Total","Fixed","Due","By","Status","EditTime","EditBy","History"]),...db.udhar.map(u=>[u.id,u.ts,u.name,u.phone,u.type,t(u.iid),u.details,u.qty,u.cost,u.total,t(u.fixed),u.due||"",u.by,u.status||"ok",t(u.editTs),t(u.editBy),JSON.stringify(u.hist||[])])]},
-{name:"UdharPayments",w:[10,16,10,10,30],rows:[B(["UdharID","Time","Amount","By","Note"]),...db.udhar.flatMap(u=>u.pays.map(p=>[u.id,p.ts,p.amt,p.by,p.note||""]))]},
-{name:"Users",w:[18,70,10],rows:[B(["Username","PasswordHash","Role"]),...db.users.map(u=>[u.u,u.p,u.role])]},
-{name:"Logs",w:[16,14,24,14,14,10,20],rows:[B(["Time","Type","Ref","Old","New","By","Reason"]),...db.logs.map(l=>[l.ts,l.type,l.ref,t(l.old),t(l.new),l.by,l.why])]},
-{name:"Settings",w:[16,30],rows:[B(["Key","Value"]),["Name",nm()],["Low",db.low],["StaffStock",db.set.staffStock?"ON":"OFF"],["StaffCost",db.set.staffCost?"ON":"OFF"],["StaffUdhar",db.set.staffUdhar?"ON":"OFF"],["NextId",db.nid],["NextUdhar",db.uid]]}]),"shop-backup-"+now()+".xlsx")}
-async function unzip(buf){const d=new DataView(buf),u=new Uint8Array(buf),dc=new TextDecoder(),o={};let p=buf.byteLength-22;while(p>=0&&d.getUint32(p,true)!=0x06054b50)p--;const n=d.getUint16(p+10,true);let q=d.getUint32(p+16,true);
-for(let i=0;i<n;i++){const m=d.getUint16(q+10,true),cs=d.getUint32(q+20,true),nl=d.getUint16(q+28,true),el=d.getUint16(q+30,true),ml=d.getUint16(q+32,true),lo=d.getUint32(q+42,true),nm2=dc.decode(u.slice(q+46,q+46+nl)),st=lo+30+d.getUint16(lo+26,true)+d.getUint16(lo+28,true);let b=u.slice(st,st+cs);
-if(m==8)b=new Uint8Array(await new Response(new Blob([b]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer());o[nm2]=dc.decode(b);q+=46+nl+el+ml}return o}
-async function readXl(buf){const z=await unzip(buf),P=x=>new DOMParser().parseFromString(x,"text/xml"),G=(x,t)=>[...x.getElementsByTagName(t)],ss=z["xl/sharedStrings.xml"]?G(P(z["xl/sharedStrings.xml"]),"si").map(x=>G(x,"t").map(t=>t.textContent).join("")):[],rel={},R={};
-G(P(z["xl/_rels/workbook.xml.rels"]),"Relationship").forEach(r=>rel[r.getAttribute("Id")]=r.getAttribute("Target"));
-G(P(z["xl/workbook.xml"]),"sheet").forEach(sh=>{const t=rel[sh.getAttribute("r:id")].replace(/^\/?(xl\/)?/,"xl/"),rows=[];G(P(z[t]),"c").forEach(c=>{const m=c.getAttribute("r").match(/([A-Z]+)(\d+)/),ci=[...m[1]].reduce((a,ch)=>a*26+ch.charCodeAt(0)-64,0)-1,ty=c.getAttribute("t"),vv=c.getElementsByTagName("v")[0];let v;
-if(ty=="inlineStr")v=G(c,"t").map(t=>t.textContent).join("");else if(vv)v=ty=="s"?ss[+vv.textContent]:ty=="str"||ty=="b"?vv.textContent:Number(vv.textContent);(rows[m[2]-1]=rows[m[2]-1]||[])[ci]=v});R[sh.getAttribute("name")]=rows});return R}
-async function impX(f){if(!f)return;try{const R=await readXl(await f.arrayBuffer()),ob=n=>{const r=R[n];if(!r)throw 0;const h=r[0];return r.slice(1).filter(x=>x&&x.length).map(x=>Object.fromEntries(h.map((k,i)=>[k,x[i]])))},N=v=>v===undefined||v===""?undefined:Number(v),S=v=>v===undefined?"":String(v),St={};
-(R.Settings||[]).slice(1).forEach(r=>{if(r)St[r[0]]=r[1]});
-const UP=R.UdharPayments?ob("UdharPayments"):[],d={udhar:(R.Udhar?ob("Udhar"):[]).map(x=>({id:N(x.ID),ts:N(x.Time),name:S(x.Name),phone:S(x.Phone),type:S(x.Type)||"other",iid:N(x.ItemID),qty:N(x.Qty)||1,cost:N(x.Cost)||0,details:S(x.Item),total:N(x.Total),fixed:N(x.Fixed),due:S(x.Due),by:S(x.By),status:S(x.Status)||"ok",editTs:N(x.EditTime),editBy:x.EditBy===undefined?undefined:S(x.EditBy),hist:(()=>{try{return JSON.parse(x.History||"[]")}catch(e){return[]}})(),pays:UP.filter(p=>N(p.UdharID)==N(x.ID)).map(p=>({ts:N(p.Time),amt:N(p.Amount),by:S(p.By),note:S(p.Note)}))})),items:ob("Items").map(x=>Object.assign({id:N(x.ID),name:S(x.Name),qty:N(x.Qty)||0,cost:N(x.Cost)||0,price:N(x.Price)||0},x.Active=="No"?{active:false}:{})),
-sales:ob("Sales").map(x=>({id:N(x.ID),ts:N(x.Time),iid:N(x.ItemID),name:S(x.Item),qty:N(x.Qty),rate:N(x.Rate),cost:N(x.Cost)||0,total:N(x.Total),paid:N(x.Paid),by:S(x.By),status:S(x.Status)||"ok",editTs:N(x.EditTime),editBy:x.EditBy===undefined?undefined:S(x.EditBy),hist:(()=>{try{return JSON.parse(x.History||"[]")}catch(e){return[]}})()})),
-restocks:ob("Restocks").map(x=>({ts:N(x.Time),iid:N(x.ItemID),name:S(x.Item),qty:N(x.Qty),cost:N(x.Cost),by:S(x.By),edited:N(x.Edited)})),
-users:ob("Users").map(x=>({u:S(x.Username),p:S(x.PasswordHash),role:S(x.Role)})),
-logs:ob("Logs").map(x=>({ts:N(x.Time),type:S(x.Type),ref:S(x.Ref),old:S(x.Old),new:S(x.New),by:S(x.By),why:S(x.Reason)})),
-low:N(St.Low)??3,nid:N(St.NextId)||1000,set:{name:St.Name||"Shop System",staffStock:St.StaffStock=="ON",staffCost:St.StaffCost=="ON",staffUdhar:St.StaffUdhar!="OFF"}};
-if(!d.items.length||!d.users.some(u=>u.role=="admin"))throw 0;d.nid=Math.max(d.nid,...d.items.map(i=>i.id+1),...d.sales.map(s=>s.id+1));d.uid=Math.max(N(St.NextUdhar)||1,...d.udhar.map(u=>u.id+1));
-if(!confirm("Mojooda data replace ho jayega. Jari rakhein?"))return;db=d;fix();save();me=null;render()}catch(e){alert("Ye sahi Excel backup file nahi hai. Sirf is system se download hui Backup (Excel) file hi chalegi.")}}
-init();
-</script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Shop System</title>
+    <style>
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            margin: 0;
+            font: 14px Arial, sans-serif;
+            background: #eef2f6;
+            color: #1d2733
+        }
+
+        header {
+            background: #1F4E78;
+            color: #fff;
+            padding: 8px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px
+        }
+
+        nav button {
+            background: none;
+            border: 0;
+            border-bottom: 2px solid transparent;
+            color: #bcd2e8;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 14px
+        }
+
+        nav button.on {
+            color: #fff;
+            border-color: #fff
+        }
+
+        main {
+            max-width: 1000px;
+            margin: 16px auto;
+            padding: 0 12px
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 6px;
+            padding: 14px;
+            margin-bottom: 14px;
+            border: 1px solid #d5dde6
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-bottom: 14px
+        }
+
+        .k {
+            background: #fff;
+            border: 1px solid #d5dde6;
+            border-left: 4px solid #1F4E78;
+            border-radius: 6px;
+            padding: 10px
+        }
+
+        .k b {
+            display: block;
+            font-size: 20px;
+            margin-top: 4px
+        }
+
+        input,
+        select {
+            padding: 8px;
+            border: 1px solid #aab4bf;
+            border-radius: 5px;
+            font-size: 14px
+        }
+
+        button.p {
+            padding: 8px 14px;
+            background: #1F4E78;
+            color: #fff;
+            border: 0;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px
+        }
+
+        button.d {
+            background: #b3261e;
+            color: #fff;
+            border: 0;
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer
+        }
+
+        button:focus-visible,
+        input:focus-visible,
+        select:focus-visible {
+            outline: 2px solid #e8a317
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse
+        }
+
+        th {
+            background: #1F4E78;
+            color: #fff;
+            text-align: left;
+            padding: 7px
+        }
+
+        td {
+            padding: 5px 7px;
+            border-bottom: 1px solid #e3e8ee
+        }
+
+        td input {
+            width: 90px
+        }
+
+        .tw {
+            overflow-x: auto
+        }
+
+        .low {
+            color: #9a5b00;
+            font-weight: bold
+        }
+
+        .out {
+            color: #b3261e;
+            font-weight: bold
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: end
+        }
+
+        label {
+            font-size: 12px;
+            display: block;
+            color: #555;
+            margin-bottom: 2px
+        }
+
+        h3 {
+            margin: 0 0 10px
+        }
+
+        #login {
+            max-width: 340px;
+            margin: 70px auto
+        }
+
+        #login input {
+            width: 100%;
+            margin-bottom: 10px
+        }
+
+        .x td {
+            color: #999
+        }
+
+        .x td:nth-last-child(-n+2) {
+            color: #1d2733
+        }
+
+        details.m {
+            position: relative
+        }
+
+        summary {
+            cursor: pointer;
+            font-weight: bold;
+            list-style: none;
+            padding: 0 8px
+        }
+
+        .mm {
+            position: absolute;
+            right: 0;
+            z-index: 5;
+            background: #fff;
+            border: 1px solid #aab4bf;
+            border-radius: 5px;
+            min-width: 160px;
+            box-shadow: 0 2px 6px #0003
+        }
+
+        .mm a {
+            display: block;
+            padding: 8px 10px;
+            cursor: pointer
+        }
+
+        .mm a:hover {
+            background: #eef2f6
+        }
+
+        .mo {
+            position: fixed;
+            inset: 0;
+            background: #0006;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9
+        }
+
+        .mc {
+            background: #fff;
+            border-radius: 6px;
+            padding: 16px;
+            width: min(360px, 92vw)
+        }
+
+        .mc input,
+        .mc select {
+            width: 100%;
+            margin-bottom: 8px
+        }
+
+        .tw {
+            min-height: 150px
+        }
+
+        .adjr td {
+            background: #fff3cd
+        }
+
+        .adj {
+            background: #ffe08a;
+            color: #7a4b00;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 12px;
+            display: inline-block
+        }
+
+        .x.adjr td {
+            background: none
+        }
+
+        .ib {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px
+        }
+
+        .ov td {
+            background: #fde7e7
+        }
+
+        .cl {
+            color: #1b6e2d;
+            font-weight: bold
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app"></div>
+    <div id="md"></div>
+    <script>
+        const K = "shopdb1", $ = s => document.querySelector(s);
+        const seed = [["Back Sheet Matte Paper", 50, 75], ["Back Sheet Matte 3D", 58, 90], ["Back Sheet Matte Leather", 13, 130], ["Jonny Hand-free", 16, 310], ["Black-Airbuds", 10, 560], ["White-Airbuds", 5, 460], ["Cable Sunny", 4, 155], ["Cable 86 Romoss", 20, 95], ["Pic Type C (Cable)", 30, 70], ["USB C Charger 20W", 2, 620], ["USB Charger 35W", 2, 720], ["Samsung Adaptor", 5, 470], ["Vivo Flash Charger Fast", 5, 620], ["iPhone Cable C to Lightning", 20, 90], ["iPhone Cable USB", 5, 155], ["Cable C to C", 10, 95], ["Handsfree", 5, 260], ["Google Charger 30W", 2, 620], ["Power Bank 10000 mAh (KR)", 1, 1870], ["Power Bank 10000 mAh Fast X", 1, 1270], ["Power Bank 20000 mAh Fast X", 1, 2700], ["Trinex", 2, 1550], ["Type C Load (Cable)", 10, 95], ["P47 Wireless Headphone", 1, 650], ["Pics Romoss", 5, 105], ["Glass 9D", 200, 55], ["New Mobile (Glass)", 15, 60], ["New S20", 5, 60]];
+        const MN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        let db = JSON.parse(localStorage.getItem(K) || "null"), me = null, tab = "", sd = "";
+        const save = () => localStorage.setItem(K, JSON.stringify(db));
+        const H = async s => { try { const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("shop" + s)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join("") } catch (e) { return btoa("shop" + s) } };
+        const fmt = n => Number(n || 0).toLocaleString("en-PK"), dk = t => new Date(t).toLocaleDateString("en-CA"), now = () => dk(Date.now());
+        const fx = s => s.qty * s.rate, tot = s => s.total != null ? s.total : s.qty * s.rate, paid = s => s.paid != null ? s.paid : tot(s), prof = s => tot(s) - s.qty * s.cost, nm = () => (db.set && db.set.name) || "Shop System", sum = (a, f) => a.reduce((x, y) => x + f(y), 0);
+        const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+        const opt = a => a.map(i => `<option value="${i.id}">${esc(i.name)} (${i.qty})</option>`).join("");
+        const item = id => db.items.find(i => i.id == id);
+        async function init() { if (!db) { db = { items: seed.map((s, i) => ({ id: i + 1, name: s[0], qty: s[1], cost: s[2], price: s[2] })), sales: [], restocks: [], users: [{ u: "admin", p: await H("admin123"), role: "admin" }, { u: "staff", p: await H("staff123"), role: "staff" }], low: 3, nid: 1000, logs: [], set: { staffStock: false, staffCost: false, name: "Shop System" } }; save() } fix(); sd = now(); render() }
+        function fix() { db.logs = db.logs || []; db.set = db.set || { staffStock: false, staffCost: false }; db.set.name = db.set.name || "Shop System"; if (db.set.staffUdhar === undefined) db.set.staffUdhar = true; document.title = db.set.name; db.sales.forEach(s => { s.status = s.status || "ok" }); db.udhar = db.udhar || []; db.uid = db.uid || 1; db.udhar.forEach(u => { u.pays = u.pays || []; u.hist = u.hist || [] }) }
+        const act = i => i.active !== false, tm = t => new Date(t).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }), dt = t => dk(t) + " " + tm(t), sale = id => db.sales.find(x => x.id == id);
+        const log = (type, ref, o, n, why) => db.logs.push({ ts: Date.now(), type, ref, old: o, new: n, by: me.u, why: why || "" });
+        const ask = m => new Promise(r => { showMd(`<h3>${esc(m)}</h3><input id="pi" style="margin-top:8px"><button class="p" id="po">OK</button> <button id="pc">Cancel</button>`); $("#pi").focus(); $("#pi").onkeydown = e => { if (e.key == "Enter") $("#po").click() }; $("#po").onclick = () => { const v = $("#pi").value; closeMd(); r(v) }; $("#pc").onclick = () => { closeMd(); r(null) } }), showMd = h => $("#md").innerHTML = `<div class="mo"><div class="mc">${h}</div></div>`, closeMd = () => $("#md").innerHTML = "";
+        const showWd = h => $("#md").innerHTML = `<div class="mo"><div class="mc" style="width:min(560px,94vw);max-height:90vh;overflow:auto">${h}</div></div>`;
+        function render() {
+            const a = $("#app");
+            if (!me) { a.innerHTML = `<div id="login" class="card"><h3>${esc(nm())} - Login</h3><label>Username</label><input id="lu"><label>Password</label><input id="lp" type="password" onkeydown="if(event.key=='Enter')login()"><button class="p" onclick="login()">Login</button><p><small>Kindly enter your username and password.</small></p></div>`; return }
+            const AD = ["dash", "stock", "re", "logs", "usr", "bk", "set"]; if (me.role != "admin" && (AD.includes(tab) || (tab == "sv" && !db.set.staffStock) || (tab == "ud" && !db.set.staffUdhar))) tab = "sale";
+            const T = me.role == "admin" ? [["dash", "Dashboard"], ["sale", "Sales"], ["ud", "Udhar"], ["stock", "Stock"], ["re", "Restock"], ["logs", "Logs"], ["usr", "Users"], ["set", "Settings"], ["bk", "Backup"]] : [["sale", "Sales Entry"]].concat(db.set.staffUdhar ? [["ud", "Udhar"]] : [], db.set.staffStock ? [["sv", "Stock"]] : []);
+            document.title = nm(); a.innerHTML = `<header><b>${esc(nm())}</b><nav>${T.map(t => `<button class="${tab == t[0] ? "on" : ""}" onclick="tab='${t[0]}';render()">${t[1]}</button>`).join("")}</nav><span>${esc(me.u)} (${me.role}) <button class="p" onclick="me=null;render()">Logout</button></span></header><main>${({ dash: vDash, sale: vSale, sv: vSV, stock: vStock, re: vRe, logs: vLog, usr: vUsr, bk: vBk, set: vSet, ud: vUd })[tab]()}</main>`;
+            if (tab == "sale") pv(1); if (tab == "ud") uInit()
+        }
+        async function login() { const u = $("#lu").value.trim(), p = await H($("#lp").value), x = db.users.find(y => y.u == u && y.p == p); if (!x) return alert("Username ya password galat hai."); me = { u: x.u, role: x.role }; tab = x.role == "admin" ? "dash" : "sale"; render() }
+        // ---- Sales
+        const canRe = s => s.status == "cancelled" && (me.role == "admin" || (s.by == me.u && dk(s.ts) == now()));
+        const canEdit = s => s.status != "cancelled" && (me.role == "admin" || (s.by == me.u && dk(s.ts) == now()));
+        function row(s, ad) { const c = s.status == "cancelled", f = fx(s), t = tot(s), aj = f != t; return `<tr class="${c ? "x " : ""}${aj ? "adjr" : ""}"><td>${ad ? dt(s.ts) : tm(s.ts)}${s.editTs ? `<br><small>Edit: ${dt(s.editTs)} (${esc(s.editBy)})</small>` : ""}<td>${esc(s.name)}<td>${s.qty}<td>${fmt(s.rate)}<td>${fmt(f)}<td>${fmt(t)}${aj ? `<br><span class="adj">Customer Adjustment ${t < f ? "-" : "+"}${fmt(Math.abs(f - t))}</span>` : ""}<td>${fmt(paid(s))}${paid(s) < t ? `<br><small>Baqaya ${fmt(t - paid(s))}</small>` : ""}${ad ? `<td>${fmt(prof(s))}<td>${esc(s.by)}` : ""}<td>${c ? "Cancelled" : "OK"}<td><details class="m"><summary>&#8943;</summary><div class="mm">${canEdit(s) ? `<a onclick="editSale(${s.id})">Edit</a><a onclick="cancelSale(${s.id})">Return / Cancel Sale</a>` : ""}${canRe(s) ? `<a onclick="restoreSale(${s.id})">Activate Again (Restore)</a>` : ""}<a onclick="viewHist(${s.id})">View History</a></div></details></tr>` }
+        let sfl = { from: now(), to: now(), q: "", st: "" };
+        const sList = () => { const ad = me.role == "admin", q = sfl.q.trim().toLowerCase(), a = sfl.from || "0000-00-00", b = sfl.to || "9999-12-31"; return db.sales.filter(s => dk(s.ts) >= a && dk(s.ts) <= b && (ad || s.by == me.u) && (!q || s.name.toLowerCase().includes(q) || String(s.by || "").toLowerCase().includes(q)) && (!sfl.st || (sfl.st == "Cancelled") == (s.status == "cancelled"))).sort((x, y) => y.ts - x.ts) };
+        function vSale() {
+            const ad = me.role == "admin", A = sList(), L = A.filter(s => s.status != "cancelled"), M = db.sales.filter(s => s.status != "cancelled" && dk(s.ts).slice(0, 7) == now().slice(0, 7)), k = (a, b) => `<div class="k">${a}<b>${b}</b></div>`;
+            return `<div class="card"><h3>Nai Bikri</h3><div class="row"><div><label>Item</label><select id="si" onchange="pv(1)">${opt(db.items.filter(i => act(i) && i.qty > 0))}</select></div><div><label>Qty</label><input id="sq" type="number" min="1" value="1" style="width:80px" oninput="pv(1)"></div><div><label>Rate (fixed)</label><b id="sr"></b></div><div><label>Fixed Total</label><b id="sf"></b></div><div><label>Customer Agreed Total</label><input id="st" type="number" min="0" style="width:130px" oninput="pv(0,1)"></div><div><label>Customer ne diye (Rs)</label><input id="sp" type="number" min="0" style="width:130px" oninput="pv(0,0,1)"></div><div><label>Rate/pc (adjusted)</label><b id="sa"></b></div><button class="p" onclick="addSale()">Save Sale</button></div><div id="sn" style="margin-top:6px"></div></div>
+${ad ? `<div class="grid">${k("Filter ki Sale", fmt(sum(L, tot)))}${k("Filter ka Profit", fmt(sum(L, prof)))}${k("Items Sold", sum(L, s => s.qty))}${k("Mahine ki Sale", fmt(sum(M, tot)))}${k("Mahine ka Profit", fmt(sum(M, prof)))}</div>` : ""}
+<div class="card"><div class="row"><h3>Sales ki list</h3><div><label>Search (item / by)</label><input value="${esc(sfl.q)}" style="width:140px" onchange="sfl.q=this.value;render()"></div><div><label>Start From</label><input type="date" value="${sfl.from}" onchange="sfl.from=this.value;render()"></div><div><label>To</label><input type="date" value="${sfl.to}" onchange="sfl.to=this.value;render()"></div><div><label>Status</label><select onchange="sfl.st=this.value;render()">${["", "OK", "Cancelled"].map(x => `<option value="${x}" ${sfl.st == x ? "selected" : ""}>${x || "Sab"}</option>`).join("")}</select></div><button class="p" onclick="sfl={from:now(),to:now(),q:'',st:''};render()">Filter hatayein</button><button class="p ib" title="Excel export" onclick="expSales()">&#128229; Excel</button></div><div class="tw"><table><tr><th>${ad ? "Entry (Date/Time)" : "Time"}<th>Item<th>Qty<th>Rate<th>Fixed Total<th>Customer Total<th>Paid${ad ? "<th>Profit<th>By" : ""}<th>Status<th>Action</tr>${A.map(s => row(s, ad)).join("")}<tr><th colspan="4">Total<th>${fmt(sum(L, fx))}<th>${fmt(sum(L, tot))}<th>${fmt(sum(L, paid))}${ad ? `<th>${fmt(sum(L, prof))}<th>` : ""}<th><th></tr></table></div></div>`
+        }
+        let pd = 0;
+        function pv(r, a, p) {
+            const i = item($("#si").value), q = +$("#sq").value || 0, f = i ? i.price * q : 0, T = $("#st"), P = $("#sp"); if (r) { T.value = f; P.value = f; pd = 0 } if (a && !pd) P.value = T.value; if (p) pd = 1; const t = +T.value || 0, x = +P.value || 0;
+            $("#sr").textContent = i ? fmt(i.price) : "-"; $("#sf").textContent = fmt(f); $("#sa").innerHTML = q ? fmt(+(t / q).toFixed(2)) + (t != f && i ? ` <small>(fixed ${fmt(i.price)})</small>` : "") : "-";
+            let h = ""; if (t != f) h += `<span class="adj">Customer Adjustment: ${t < f ? "Discount" : "Extra"} ${fmt(Math.abs(f - t))} (Fixed ${fmt(f)} → Agreed ${fmt(t)})</span> `; if (x < t) h += `<span class="adj">Baqaya: ${fmt(t - x)}</span>`; $("#sn").innerHTML = h
+        }
+        function addSale() {
+            const i = item($("#si").value), q = parseInt($("#sq").value), t = +$("#st").value, pa = +$("#sp").value, ad = me.role == "admin"; if (!i) return alert("Item chunein."); if (!(q >= 1)) return alert("Qty 1 ya zyada likhein."); if (q > i.qty) return alert("Stock kam hai. Sirf " + i.qty + " bachi hain.");
+            if ($("#st").value === "" || !(t >= 0)) return alert("Customer Agreed Total likhein."); if (t < i.cost * q) return alert("Is total par loss hoga. Minimum total " + fmt(i.cost * q) + " hona chahiye."); if (!ad && t > i.price * q) return alert("Total Fixed Total (" + fmt(i.price * q) + ") se zyada nahi ho sakta."); if ($("#sp").value === "" || !(pa >= 0) || pa > t) return alert("Customer ne diye paisay 0 se Agreed Total ke beech likhein.");
+            if (db.sales.find(s => s.by == me.u && s.iid == i.id && s.qty == q && s.status != "cancelled" && Date.now() - s.ts < 120000) && !confirm("Ye sale abhi abhi save ho chuki hai. Phir bhi save karein?")) return;
+            db.sales.push({ id: db.nid++, ts: Date.now(), iid: i.id, name: i.name, qty: q, rate: i.price, total: t, paid: pa, cost: i.cost, by: me.u, status: "ok", hist: [] }); i.qty -= q; save(); render()
+        }
+        function editSale(id) {
+            const s = sale(id); if (!canEdit(s)) return alert("Ye entry aap edit nahi kar sakte."); if (!item(s.iid)) return alert("Ye item delete ho chuka hai, edit nahi ho sakta.");
+            showMd(`<h3>Sale Edit</h3><label>Item</label><select id="ei" onchange="ep(2)">${db.items.filter(i => act(i) || i.id == s.iid).map(i => `<option value="${i.id}" ${i.id == s.iid ? "selected" : ""}>${esc(i.name)} (${i.qty + (i.id == s.iid ? s.qty : 0)})</option>`).join("")}</select><label>Qty</label><input id="eq" type="number" min="1" value="${s.qty}" oninput="ep(1)"><label>Rate (fixed)</label><input id="er" type="number" value="${s.rate}" oninput="ep(1)"><p>Fixed Total: <b id="ef"></b></p><label>Customer Agreed Total</label><input id="et" type="number" min="0" value="${tot(s)}" oninput="ep()"><label>Customer ne diye (Rs)</label><input id="ep" type="number" min="0" value="${paid(s)}"><p id="en"></p><button class="p" onclick="saveEdit(${id})">Save Edit</button> <button onclick="closeMd()">Cancel</button>`); ep()
+        }
+        function ep(c) { if (c == 2) $("#er").value = item($("#ei").value).price; const f = ($("#eq").value || 0) * ($("#er").value || 0); if (c) { $("#et").value = f; $("#ep").value = f } const t = +$("#et").value || 0; $("#ef").textContent = fmt(f); $("#en").innerHTML = t != f ? `<span class="adj">Customer Adjustment: ${t < f ? "Discount" : "Extra"} ${fmt(Math.abs(f - t))}</span>` : "" }
+        function saveEdit(id) {
+            const s = sale(id), ad = me.role == "admin", n = item($("#ei").value), o = item(s.iid), q = parseInt($("#eq").value), r = +$("#er").value, t = +$("#et").value, pa = +$("#ep").value;
+            if (!(q >= 1)) return alert("Qty 1 ya zyada honi chahiye. Poori sale wapis karni ho to Return / Cancel use karein.");
+            if (q > n.qty + (o && o.id == n.id ? s.qty : 0)) return alert("Stock kam hai.");
+            const c = n.id == s.iid ? s.cost : n.cost;
+            if (!(r >= 0) || $("#et").value === "" || !(t >= 0)) return alert("Rate aur Agreed Total sahi likhein."); if (t < c * q) return alert("Is total par loss hoga. Minimum total " + fmt(c * q) + " hona chahiye.");
+            if (!ad && r > n.price) return alert("Rate Sale Price se zyada nahi ho sakta."); if (!ad && t > r * q) return alert("Total Fixed Total se zyada nahi ho sakta."); if (!(pa >= 0) || pa > t) return alert("Customer ne diye paisay 0 se Agreed Total ke beech likhein.");
+            const a = `${s.name} x${s.qty} @${s.rate} total ${tot(s)} paid ${paid(s)}`, b = `${n.name} x${q} @${r} total ${t} paid ${pa}`; if (a == b) return closeMd();
+            if (!confirm("Kya aap is naye edit ko save karna chahte hain?")) return closeMd();
+            if (o) o.qty += s.qty; n.qty -= q; Object.assign(s, { iid: n.id, name: n.name, qty: q, rate: r, total: t, paid: pa, cost: c, editTs: Date.now(), editBy: me.u }); (s.hist = s.hist || []).push({ ts: Date.now(), by: me.u, txt: a + " -> " + b }); log("Sale Edit", "Sale #" + id, a, b); save(); closeMd(); render()
+        }
+        function cancelSale(id) { const s = sale(id); if (!canEdit(s)) return; if (!confirm("Poori sale wapis/cancel karein? Qty stock mein wapas chali jayegi.")) return; const o = item(s.iid); if (o) o.qty += s.qty; s.status = "cancelled"; s.editTs = Date.now(); s.editBy = me.u; (s.hist = s.hist || []).push({ ts: Date.now(), by: me.u, txt: "Cancelled / Return" }); log("Sale Cancel", "Sale #" + id, `${s.name} x${s.qty}`, "Cancelled"); save(); render() }
+        function restoreSale(id) { const s = sale(id); if (!s || !canRe(s)) return; const o = item(s.iid); if (!o) return alert("Ye item delete ho chuka hai, sale dobara active nahi ho sakti."); if (o.qty < s.qty) return alert("Stock kam hai. " + o.name + " ki sirf " + o.qty + " bachi hain."); if (!confirm("Ye sale dobara active (OK) karein? Qty stock se dobara minus hogi.")) return; o.qty -= s.qty; s.status = "ok"; s.editTs = Date.now(); s.editBy = me.u; (s.hist = s.hist || []).push({ ts: Date.now(), by: me.u, txt: "Restored / Activated again" }); log("Sale Restore", "Sale #" + id, "Cancelled", `${s.name} x${s.qty}`); save(); render() }
+        function viewHist(id) { const s = sale(id); alert("Original entry: " + dt(s.ts) + " (" + s.by + ")\n" + `${s.name} x${s.qty} @${s.rate} | Fixed ${fmt(fx(s))} | Customer Total ${fmt(tot(s))} | Paid ${fmt(paid(s))}\n\n` + ((s.hist || []).map(h => dt(h.ts) + " (" + h.by + "): " + h.txt).join("\n") || "Koi change nahi hua.")) }
+        // ---- Udhar
+        const udh = id => db.udhar.find(x => x.id == id), uidf = u => "U-" + String(u.id).padStart(4, "0"), upaid = u => sum(u.pays, p => p.amt), ubal = u => u.status == "cancelled" ? 0 : Math.round((u.total - upaid(u)) * 100) / 100, ust = u => u.status == "cancelled" ? "Cancelled" : ubal(u) <= 0 ? "Clear" : (u.due && u.due < now() ? "Overdue" : "Pending"),
+            pkey = p => { let d = String(p || "").replace(/\D/g, ""); if (d.startsWith("92") && d.length == 12) d = "0" + d.slice(2); return d }, okPh = p => { const d = pkey(p); return /^03\d{9}$/.test(d) || /^0\d{9,10}$/.test(d) }, fph = p => { const d = pkey(p); return /^03\d{9}$/.test(d) ? d.slice(0, 4) + "-" + d.slice(4) : String(p).trim() },
+            canUe = u => me.role == "admin" || (u.by == me.u && dk(u.ts) == now()),
+            ck = u => pkey(u.phone) || "n:" + String(u.name || "").toLowerCase(), uAc = u => u.status != "cancelled", uSales = () => db.udhar.filter(u => u.type == "stock" && u.status != "cancelled").map(u => ({ ts: u.ts, qty: u.qty, cost: u.cost, total: u.total, rate: u.total / u.qty, status: "ok" }));
+        let uf = { q: "", from: "", to: "", c: "", st: "" };
+        function vUd() {
+            const C = {}; db.udhar.forEach(u => { const k = ck(u); C[k] = C[k] || { k, n: u.name, p: u.phone }; C[k].n = u.name });
+            return `<div class="card"><h3>Naya Udhar</h3><div class="row"><div><label>Customer Name</label><input id="un" style="width:170px" oninput="uPv()"></div><div><label>Contact Number</label><input id="up" placeholder="0300-1234567" style="width:150px" oninput="uPv()"></div><div><label>Type</label><select id="ut" onchange="uPv(2)"><option value="stock">Stock item</option><option value="other">Other (cash loan, rashan...)</option></select></div></div>
+<div class="row" style="margin-top:8px"><div id="usi"><label>Item</label><select id="ui" onchange="uPv(1)">${opt(db.items.filter(i => act(i) && i.qty > 0))}</select></div><div id="usq"><label>Qty</label><input id="uq" type="number" min="1" value="1" style="width:70px" oninput="uPv(1)"></div><div id="uso" style="display:none"><label>Item Details</label><input id="ud2" style="width:220px" placeholder="Cash Loan / Rashan"></div><div><label>Total Bill</label><input id="ub" type="number" min="1" style="width:110px" oninput="uPv()"></div><div><label>Abhi diye (Paid)</label><input id="uy" type="number" min="0" value="0" style="width:110px" oninput="uPv()"></div><div><label>Due Date</label><input id="uu" type="date" style="width:150px"></div><div><label>Balance</label><b id="ubl"></b></div><button class="p" onclick="addUd()">Save Udhar</button></div><div id="uin" style="margin-top:6px"></div></div>
+<div class="card"><div class="row"><h3>Udhar List</h3><div><label>Search (naam / phone)</label><input id="fq" value="${esc(uf.q)}" style="width:150px" oninput="uf.q=this.value;uRef()"></div><div><label>Customer</label><select onchange="uf.c=this.value;render()"><option value="">Sab</option>${Object.values(C).map(c => `<option value="${c.k}" ${uf.c == c.k ? "selected" : ""}>${esc(c.n)} (${esc(c.p)})</option>`).join("")}</select></div><div><label>From</label><input type="date" value="${uf.from}" onchange="uf.from=this.value;uRef()"></div><div><label>To</label><input type="date" value="${uf.to}" onchange="uf.to=this.value;uRef()"></div><div><label>Status</label><select onchange="uf.st=this.value;uRef()">${["", "Pending", "Overdue", "Clear", "Cancelled"].map(x => `<option value="${x}" ${uf.st == x ? "selected" : ""}>${x || "Sab"}</option>`).join("")}</select></div><button class="p" onclick="uf={q:'',from:'',to:'',c:'',st:''};render()">Filter hatayein</button><button class="p ib" title="Excel export" onclick="exUd()">&#128229; Excel</button></div><div id="ucs"></div><div class="tw" id="utab"></div></div>`
+        }
+        function uInit() { uPv(2); uRef() }
+        function uPv(c) {
+            const t = $("#ut").value == "stock", si = $("#ui"), i = si && t ? item(si.value) : null, q = +$("#uq").value || 0, f = i ? i.price * q : 0;
+            $("#usi").style.display = $("#usq").style.display = t ? "" : "none"; $("#uso").style.display = t ? "none" : "";
+            if (c && t) $("#ub").value = f || ""; if (c == 2 && !t) $("#ub").value = "";
+            const b = +$("#ub").value || 0, y = +$("#uy").value || 0, bl = b - y; $("#ubl").textContent = fmt(bl);
+            const k = pkey($("#up").value), n = $("#un").value.trim().toLowerCase(), M = db.udhar.filter(u => (k.length >= 10 && pkey(u.phone) == k) || (k.length < 10 && n && u.name.toLowerCase() == n)), ob = sum(M, ubal);
+            let h = ""; if (M.length) h += `<span class="adj">Purana Udhar Baqi: ${fmt(ob)} (${esc(M[0].name)}, ${M.length} entry) &rarr; nayi entry ke baad ${fmt(ob + bl)}</span> `;
+            if (t && i && b && b != f) h += `<span class="adj">Customer Adjustment: ${b < f ? "Discount" : "Extra"} ${fmt(Math.abs(f - b))} (Fixed ${fmt(f)} &rarr; Bill ${fmt(b)})</span> `;
+            if (y > b) h += `<span class="adj" style="background:#f8cbcb;color:#9c0006">Paid, Total Bill se zyada hai</span>`;
+            $("#uin").innerHTML = h
+        }
+        function addUd() {
+            const nm2 = $("#un").value.trim(), ph = $("#up").value.trim(), t = $("#ut").value == "stock", ad = me.role == "admin", b = +$("#ub").value, y = $("#uy").value === "" ? 0 : +$("#uy").value, du = $("#uu").value;
+            if (ph && !okPh(ph)) return alert("Number sahi likhein, jaise 0300-1234567 (ya khali chhor dein).");
+            let i = null, q = 1, dtl;
+            if (t) {
+                i = item($("#ui").value); q = parseInt($("#uq").value); if (!i) return alert("Item chunein."); if (!(q >= 1)) return alert("Qty 1 ya zyada likhein."); if (q > i.qty) return alert("Stock kam hai. Sirf " + i.qty + " bachi hain."); dtl = i.name + " x" + q;
+                if (!(b > 0)) return alert("Total Bill likhein."); if (b < i.cost * q) return alert("Is total par loss hoga. Minimum total " + fmt(i.cost * q) + " hona chahiye."); if (!ad && b > i.price * q) return alert("Total Fixed Total (" + fmt(i.price * q) + ") se zyada nahi ho sakta.")
+            }
+            else { dtl = $("#ud2").value.trim(); if (!dtl) return alert("Item Details likhein (jaise Cash Loan, Rashan)."); if (!(b > 0)) return alert("Total Bill likhein.") }
+            if (!(y >= 0) || y > b) return alert("Paid amount 0 se Total Bill ke beech hona chahiye. Paid, Total Bill se zyada nahi ho sakta.");
+            if (y < b && du && du < now()) return alert("Due Date aaj ya aaj ke baad ki likhein.");
+            if (y < b && !du && !confirm("Due Date nahi likhi. Bina Due Date ke ye kabhi Overdue nahi hoga. Phir bhi save karein?")) return;
+            if (db.udhar.find(x => x.by == me.u && pkey(x.phone) == pkey(ph) && x.total == b && x.details == dtl && Date.now() - x.ts < 120000) && !confirm("Ye udhar abhi abhi save ho chuka hai. Phir bhi save karein?")) return;
+            const ts = Date.now(), u = { id: db.uid++, ts, name: nm2 || "Unknown", phone: ph ? fph(ph) : "", type: t ? "stock" : "other", iid: i ? i.id : null, qty: q, cost: i ? i.cost : 0, details: dtl, total: b, fixed: i ? i.price * q : null, due: y < b ? du : "", by: me.u, status: "ok", pays: [], hist: [] };
+            if (y > 0) u.pays.push({ ts, amt: y, by: me.u, note: "Pehli payment" });
+            if (i) i.qty -= q; db.udhar.push(u); log("Udhar Add", uidf(u), "", `${nm2} | ${dtl} | total ${b} | paid ${y}`); save(); render()
+        }
+        function uList() { const q = uf.q.trim().toLowerCase(), qd = q.replace(/\D/g, ""); return db.udhar.filter(u => (!q || u.name.toLowerCase().includes(q) || (qd && pkey(u.phone).includes(qd))) && (!uf.c || ck(u) == uf.c) && (!uf.from || dk(u.ts) >= uf.from) && (!uf.to || dk(u.ts) <= uf.to) && (!uf.st || ust(u) == uf.st)).sort((a, b) => b.ts - a.ts) }
+        function uSet(k) { uf.c = k; render() }
+        function uRow(u) {
+            const s = ust(u), b = ubal(u), aj = u.fixed != null && u.fixed != u.total;
+            return `<tr class="${s == "Overdue" ? "ov" : s == "Cancelled" ? "x" : ""}"><td>${uidf(u)}<td>${dk(u.ts)}<td>${tm(u.ts)}<td>${esc(u.name)}<td>${esc(u.phone)}<td>${esc(u.details)}${u.editTs ? `<br><small>Edit: ${dt(u.editTs)} (${esc(u.editBy)})</small>` : ""}${aj ? `<br><span class="adj">Customer Adjustment ${u.total < u.fixed ? "-" : "+"}${fmt(Math.abs(u.fixed - u.total))}</span>` : ""}<td>${fmt(u.total)}<td>${fmt(upaid(u))}<td><b>${fmt(b)}</b><td class="${s == "Overdue" ? "out" : s == "Clear" ? "cl" : s == "Cancelled" ? "" : "low"}">${s}<td>${s == "Clear" || s == "Cancelled" || !u.due ? "-" : u.due}<td><details class="m"><summary>&#8943;</summary><div class="mm">${canUe(u) && s != "Cancelled" ? `<a onclick="editUd(${u.id})">Edit</a><a onclick="cancelUd(${u.id})">Cancel Order (Wapis)</a>` : ""}${canUe(u) && s == "Cancelled" ? `<a onclick="restoreUd(${u.id})">Activate Again (Restore)</a>` : ""}${b > 0 ? `<a onclick="payUd(${u.id})">Add Payment</a>` : ""}<a onclick="histUd(${u.id})">View History</a>${b > 0 ? `<a onclick="remUd(${u.id})">Send Reminder (WhatsApp)</a>` : ""}</div></details></tr>`
+        }
+        function uRef() {
+            const L = uList(), LA = L.filter(uAc), C = {}; LA.forEach(u => { const k = ck(u), c = C[k] = C[k] || { k, n: u.name, p: u.phone, e: 0, t: 0, pd: 0 }; c.e++; c.t += u.total; c.pd += upaid(u) });
+            const CL = Object.values(C).filter(c => c.t - c.pd > 0).sort((a, b) => (b.t - b.pd) - (a.t - a.pd));
+            $("#ucs").innerHTML = CL.length ? `<h3 style="margin-top:12px">Customer-wise Total Udhar Baqi</h3><div class="tw" style="min-height:0;max-height:220px;overflow:auto"><table><tr><th>Customer<th>Contact<th>Entries<th>Total Bill<th>Paid<th>Baqi</tr>${CL.map(c => `<tr><td><a style="cursor:pointer;color:#1F4E78;text-decoration:underline" onclick="uSet('${c.k}')">${esc(c.n)}</a><td>${esc(c.p)}<td>${c.e}<td>${fmt(c.t)}<td>${fmt(c.pd)}<td><b>${fmt(c.t - c.pd)}</b></tr>`).join("")}</table></div><h3 style="margin-top:12px">Udhar Entries</h3>` : "";
+            $("#utab").innerHTML = `<table><tr><th>Udhar ID<th>Date<th>Time<th>Customer<th>Contact<th>Item Details<th>Total Bill<th>Amount Paid<th>Balance<th>Status<th>Due Date<th>Action</tr>${L.map(uRow).join("")}<tr><th colspan="6">Total<th>${fmt(sum(LA, u => u.total))}<th>${fmt(sum(LA, upaid))}<th>${fmt(sum(LA, ubal))}<th colspan="3"></tr></table>`
+        }
+        function cancelUd(id) {
+            const u = udh(id); if (!u || !canUe(u) || u.status == "cancelled") return; const pd = upaid(u), o = u.type == "stock" ? item(u.iid) : null; if (!confirm("Ye udhar order cancel karein?" + (u.type == "stock" ? " Qty " + u.qty + " stock mein wapas chali jayegi." : "") + (pd > 0 ? "\nIs par Rs " + fmt(pd) + " mil chuke hain, wo customer ko wapis karne hon ge." : ""))) return;
+            if (o) o.qty += u.qty; u.status = "cancelled"; u.editTs = Date.now(); u.editBy = me.u; u.hist.push({ ts: Date.now(), by: me.u, txt: "Order cancel / wapis" + (pd > 0 ? " (mile hue Rs " + fmt(pd) + " wapis karne hain)" : "") }); log("Udhar Cancel", uidf(u), "Baqi " + (u.total - pd), "Cancelled"); save(); render()
+        }
+        function restoreUd(id) {
+            const u = udh(id); if (!u || !canUe(u) || u.status != "cancelled") return; const o = u.type == "stock" ? item(u.iid) : null; if (u.type == "stock") { if (!o) return alert("Ye item delete ho chuka hai, udhar dobara active nahi ho sakta."); if (o.qty < u.qty) return alert("Stock kam hai. " + o.name + " ki sirf " + o.qty + " bachi hain.") } if (!confirm("Ye udhar dobara active karein?")) return;
+            if (o) o.qty -= u.qty; u.status = "ok"; u.editTs = Date.now(); u.editBy = me.u; u.hist.push({ ts: Date.now(), by: me.u, txt: "Restored / Activated again" }); log("Udhar Restore", uidf(u), "Cancelled", "Baqi " + ubal(u)); save(); render()
+        }
+        function payUd(id) {
+            const u = udh(id), b = ubal(u); if (b <= 0) return alert("Is udhar ka balance 0 hai, payment ki zaroorat nahi.");
+            showMd(`<h3>Add Payment - ${uidf(u)}</h3><p>${esc(u.name)}<br>Total ${fmt(u.total)} | Mil chuka ${fmt(upaid(u))} | <b>Baqi ${fmt(b)}</b></p><label>Date / Time (auto)</label><input value="${dt(Date.now())}" disabled><label>Amount</label><input id="pa" type="number" min="1" max="${b}"><label>Received By</label><input value="${esc(me.u)}" disabled><label>Note (optional)</label><input id="pn"><button class="p" onclick="savePay(${id})">Save Payment</button> <button onclick="closeMd()">Cancel</button>`)
+        }
+        function savePay(id) {
+            const u = udh(id), b = ubal(u), a = +$("#pa").value; if (!(a > 0)) return alert("Amount likhein."); if (a > b) return alert("Amount Udhar Balance (" + fmt(b) + ") se zyada nahi ho sakta."); if (!confirm("Rs " + fmt(a) + " ki payment save karein?")) return;
+            u.pays.push({ ts: Date.now(), amt: a, by: me.u, note: $("#pn").value.trim() }); u.hist.push({ ts: Date.now(), by: me.u, txt: "Payment " + fmt(a) + " mili (baqi " + fmt(b - a) + ")" }); log("Udhar Payment", uidf(u), "Baqi " + b, "Baqi " + (Math.round((b - a) * 100) / 100)); save(); closeMd(); render()
+        }
+        function histUd(id) { const u = udh(id); showWd(`<h3>${uidf(u)} - ${esc(u.name)}</h3><p>${esc(u.details)}<br>Entry: ${dt(u.ts)} (${esc(u.by)})<br>Total ${fmt(u.total)} | Mila ${fmt(upaid(u))} | Baqi <b>${fmt(ubal(u))}</b> | ${ust(u)}</p><b>Payments</b><table><tr><th>Date-Time<th>Amount<th>Received By<th>Note</tr>${u.pays.map(p => `<tr><td>${dt(p.ts)}<td>${fmt(p.amt)}<td>${esc(p.by)}<td>${esc(p.note || "")}</tr>`).join("") || "<tr><td colspan=4>Abhi koi payment nahi.</tr>"}</table><p><b>Changes</b></p>${u.hist.map(h => `<div>${dt(h.ts)} (${esc(h.by)}): ${esc(h.txt)}</div>`).join("") || "Koi change nahi hua."}<p><button onclick="closeMd()">Close</button></p>`) }
+        function remUd(id) { const u = udh(id), b = ubal(u); if (b <= 0) return; const d = pkey(u.phone); if (!d) return alert("Is customer ka number save nahi hai."); const m = `Assalam o Alaikum ${u.name}, aap ka ${nm()} mein Rs ${fmt(b)} udhar baqi hai${u.due ? " (Due date: " + u.due + ")" : ""}. Meherbani karke jald ada karein. Shukriya.`; window.open("https://wa.me/92" + d.slice(1) + "?text=" + encodeURIComponent(m), "_blank") }
+        function editUd(id) {
+            const u = udh(id); if (!canUe(u)) return alert("Ye entry aap edit nahi kar sakte.");
+            showMd(`<h3>Udhar Edit - ${uidf(u)}</h3><label>Customer Name</label><input id="uen" value="${esc(u.name)}"><label>Contact Number</label><input id="uep" value="${esc(u.phone)}">${u.type == "stock" ? `<p>Item: <b>${esc(u.details)}</b> (item/qty edit nahi hoti)</p>` : `<label>Item Details</label><input id="ued" value="${esc(u.details)}">`}<label>Total Bill (Mila: ${fmt(upaid(u))})</label><input id="uet" type="number" min="1" value="${u.total}"><label>Due Date</label><input id="ueu" type="date" value="${u.due || ""}"><button class="p" onclick="saveUd(${id})">Save Edit</button> <button onclick="closeMd()">Cancel</button>`)
+        }
+        function saveUd(id) {
+            const u = udh(id), ad = me.role == "admin", n = $("#uen").value.trim(), ph = $("#uep").value.trim(), d = u.type == "stock" ? u.details : $("#ued").value.trim(), b = +$("#uet").value, du = $("#ueu").value;
+            if (ph && !okPh(ph)) return alert("Number sahi likhein, jaise 0300-1234567 (ya khali chhor dein)."); if (!d) return alert("Item Details likhein."); if (!(b > 0)) return alert("Total Bill likhein.");
+            if (b < upaid(u)) return alert("Total Bill, ab tak mile paisay (" + fmt(upaid(u)) + ") se kam nahi ho sakta.");
+            if (u.type == "stock" && b < u.cost * u.qty) return alert("Is total par loss hoga. Minimum total " + fmt(u.cost * u.qty) + " hona chahiye.");
+            if (!ad && u.fixed != null && b > u.fixed) return alert("Total Fixed Total (" + fmt(u.fixed) + ") se zyada nahi ho sakta.");
+            const a = `${u.name} | ${u.phone} | ${u.details} | total ${u.total} | due ${u.due || "-"}`, c = `${n} | ${fph(ph)} | ${d} | total ${b} | due ${du || "-"}`; if (a == c) return closeMd();
+            if (!confirm("Kya aap is naye edit ko save karna chahte hain?")) return closeMd();
+            Object.assign(u, { name: n || "Unknown", phone: ph ? fph(ph) : "", details: d, total: b, due: du, editTs: Date.now(), editBy: me.u }); u.hist.push({ ts: Date.now(), by: me.u, txt: a + " -> " + c }); log("Udhar Edit", uidf(u), a, c); save(); closeMd(); render()
+        }
+        function exUd() {
+            const L = uList().sort((a, b) => a.ts - b.ts); if (!L.length) return alert("Export ke liye koi udhar nahi hai.");
+            const H = ["Udhar ID", "Date", "Time", "Customer", "Contact", "Item Details", "Total Bill", "Amount Paid", "Balance", "Status", "Due Date"], n = L.length + 1,
+                rows = L.map(u => { const s = ust(u), y = v => s == "Overdue" ? { v, s: 3 } : v; return [uidf(u), dk(u.ts), tm(u.ts), u.name, u.phone, u.details, u.total, upaid(u), ubal(u), s, s == "Clear" || !u.due ? "-" : u.due].map(y) }),
+                T = H.map((h, j) => j == 0 ? { v: "Total", s: 2 } : [6, 7, 8].includes(j) ? { f: `SUMIF(J2:J${n},"<>Cancelled",${cn(j)}2:${cn(j)}${n})`, s: 2 } : { v: "", s: 2 });
+            dlf(xlsx([{ name: "Udhar", w: [10, 12, 10, 22, 15, 30, 12, 12, 12, 10, 12], rows: [hd(H), ...rows, T] }]), "udhar-" + now() + ".xlsx")
+        }
+        function udSum() {
+            const A = db.udhar.filter(uAc), t = now(), bal = A.filter(u => ubal(u) > 0), tw = sum(A, u => sum(u.pays.filter(p => dk(p.ts) == t), p => p.amt)), C = {};
+            bal.forEach(u => { const k = ck(u), c = C[k] = C[k] || { n: u.name, p: u.phone, b: 0, ov: 0, due: "" }; c.b += ubal(u); if (ust(u) == "Overdue") { c.ov += ubal(u); if (!c.due || u.due < c.due) c.due = u.due } });
+            const L = Object.values(C), ov = L.filter(c => c.ov > 0).sort((a, b) => b.ov - a.ov), top = [...L].sort((a, b) => b.b - a.b).slice(0, 5);
+            return `<div class="grid"><div class="k">Total Udhar Baqi (Rs)<b>${fmt(sum(bal, ubal))}</b></div><div class="k">Aaj Wasooli (Rs)<b>${fmt(tw)}</b></div><div class="k">Overdue Customers<b>${ov.length}</b></div></div>
+<div class="card"><h3>Overdue Customers (${ov.length})</h3><div class="tw" style="min-height:0"><table><tr><th>Customer<th>Contact<th>Overdue Baqi<th>Sab se purani Due Date</tr>${ov.map(c => `<tr class="ov"><td>${esc(c.n)}<td>${esc(c.p)}<td>${fmt(c.ov)}<td>${c.due}</tr>`).join("") || "<tr><td colspan=4>Koi overdue nahi."}</table></div></div>
+<div class="card"><h3>Top 5 sabse zyada Udhar wale Customers</h3><div class="tw" style="min-height:0"><table><tr><th>#<th>Customer<th>Contact<th>Total Baqi</tr>${top.map((c, i) => `<tr><td>${i + 1}<td>${esc(c.n)}<td>${esc(c.p)}<td><b>${fmt(c.b)}</b></tr>`).join("") || "<tr><td colspan=4>Abhi koi udhar baqi nahi."}</table></div></div>`
+        }
+        // ---- Dashboard
+        function vDash() {
+            const t = now(), m = t.slice(0, 7), y = t.slice(0, 4), S = db.sales.filter(s => s.status != "cancelled").concat(uSales()), T = S.filter(s => dk(s.ts) == t), M = S.filter(s => dk(s.ts).slice(0, 7) == m), k = (a, b) => `<div class="k">${a}<b>${b}</b></div>`, lo = db.items.filter(i => i.qty <= db.low);
+            let r = ""; for (let i = 1; i <= 12; i++) { const A = S.filter(s => dk(s.ts).slice(0, 7) == y + "-" + String(i).padStart(2, "0")); r += `<tr><td>${MN[i - 1]}<td>${fmt(sum(A, tot))}<td>${fmt(sum(A, prof))}<td>${sum(A, s => s.qty)}</tr>` }
+            return `<div class="grid">${k("Aaj ki Sale (Rs)", fmt(sum(T, tot)))}${k("Aaj ka Profit (Rs)", fmt(sum(T, prof)))}${k("Aaj bika (Qty)", sum(T, s => s.qty))}${k("Is mahine ki Sale (Rs)", fmt(sum(M, tot)))}${k("Is mahine ka Profit (Rs)", fmt(sum(M, prof)))}${k("Stock Value (Rs)", fmt(sum(db.items, i => i.qty * i.cost)))}</div>
+${udSum()}<div class="card"><h3>Low / Out Stock (${lo.length})</h3><div class="tw"><table><tr><th>Item<th>Qty<th>Status</tr>${lo.map(i => `<tr><td>${esc(i.name)}<td>${i.qty}<td class="${i.qty <= 0 ? "out" : "low"}">${i.qty <= 0 ? "OUT" : "LOW"}</tr>`).join("") || "<tr><td colspan=3>Sab items theek hain.</tr>"}</table></div></div>
+<div class="card"><h3>Mahine ke hisab se ${y}</h3><div class="tw"><table><tr><th>Mahina<th>Sale (Rs)<th>Profit (Rs)<th>Qty</tr>${r}</table></div></div>`
+        }
+        // ---- Stock
+        const stt = i => i.qty <= 0 ? "Out of Stock" : i.qty <= db.low ? "Low" : "Available", stc = i => i.qty <= 0 ? "out" : i.qty <= db.low ? "low" : "";
+        function vSV() { const c = db.set.staffCost; return `<div class="card"><h3>Stock (sirf dekhne ke liye)</h3><div class="tw"><table><tr><th>Item<th>Current Qty${c ? "<th>Cost" : ""}<th>Status</tr>${db.items.filter(act).map(i => `<tr><td>${esc(i.name)}<td>${i.qty}${c ? `<td>${fmt(i.cost)}` : ""}<td class="${stc(i)}">${stt(i)}</tr>`).join("")}</table></div></div>` }
+        function vStock() {
+            const R = a => a.map(i => `<tr class="${act(i) ? "" : "x"}"><td>${esc(i.name)}<td><input type="number" min="0" value="${i.qty}" onchange="chgQty(${i.id},this)"><td><input type="number" value="${i.cost}" onchange="upd(${i.id},'cost',this.value)"><td><input type="number" value="${i.price}" onchange="upd(${i.id},'price',this.value)"><td class="${stc(i)}">${act(i) ? stt(i) : "Inactive"}<td><button class="p" onclick="togAct(${i.id})">${act(i) ? "Inactive karein" : "Active karein"}</button> <button class="d" title="Item delete karein" onclick="delItem(${i.id})">&#10005;</button></tr>`).join("");
+            return `<div class="card"><h3>Naya Item</h3><div class="row"><div><label>Naam</label><input id="an"></div><div><label>Qty</label><input id="aq" type="number" min="0" style="width:80px"></div><div><label>Cost Rate</label><input id="ac" type="number" min="0" style="width:90px"></div><div><label>Sale Price</label><input id="ap" type="number" min="0" style="width:90px"></div><button class="p" onclick="addItem()">Add Item</button></div></div>
+<div class="card"><h3>Stock</h3><div class="tw"><table><tr><th>Item<th>Current Qty<th>Cost<th>Sale Price<th>Status<th></tr>${R(db.items)}</table></div></div>`
+        }
+        function vSet() {
+            const sw = k => `<button class="p" onclick="tg('${k}')">${db.set[k] ? "ON" : "OFF"}</button>`; return `<div class="card"><h3>System Settings</h3><div class="row"><div><label>System / Shop ka Naam</label><input value="${esc(nm())}" style="width:260px" onchange="setNm(this.value)"></div></div></div>
+<div class="card"><h3>Staff Settings</h3><div class="row"><div><label>Staff Stock View</label>${sw("staffStock")}</div><div><label>Staff ko Cost dikhayein</label>${sw("staffCost")}</div><div><label>Staff ko Udhar menu</label>${sw("staffUdhar")}</div><div><label>Low-Stock-Limit</label><input type="number" min="0" value="${db.low}" style="width:70px" onchange="db.low=+this.value;save();render()"></div></div></div>`
+        }
+        function setNm(v) { v = v.trim(); if (!v) return render(); log("Setting", "Shop Name", nm(), v); db.set.name = v; save(); render() }
+        function delItem(id) { const i = item(id), h = db.sales.some(s => s.iid == id) || db.restocks.some(r => r.iid == id) || db.udhar.some(u => u.iid == id); if (!confirm(i.name + " ko list se delete karein?" + (h ? "\nIs item ki purani sales/restock entries hain, wo record mein rahengi. Behtar hai Inactive karein." : ""))) return; db.items = db.items.filter(x => x.id != id); log("Item Delete", i.name, i.qty, ""); save(); render() }
+        function tg(k) { db.set[k] = !db.set[k]; save(); render() }
+        async function chgQty(id, el) { const i = item(id), n = Number(el.value); if (el.value === "" || !Number.isInteger(n) || n < 0) { alert("Qty 0 ya zyada poora number honi chahiye."); return render() } if (n == i.qty) return; const w = await ask("Qty kyun badli? (optional, khali chhor sakte hain)"); if (w === null) return render(); log("Qty Change", i.name, i.qty, n, w); i.qty = n; save(); render() }
+        function upd(id, f, v) { const i = item(id), n = Number(v); if (v === "" || n < 0) return render(); if (n != i[f]) log(f == "cost" ? "Cost Change" : "Price Change", i.name, i[f], n); i[f] = n; save(); render() }
+        function addItem() { const n = $("#an").value.trim(); if (!n) return alert("Naam likhein."); if (db.items.find(i => i.name.toLowerCase() == n.toLowerCase())) return alert("Ye item pehle se hai."); const i = { id: db.nid++, name: n, qty: Math.max(0, +$("#aq").value || 0), cost: +$("#ac").value || 0, price: +$("#ap").value || 0 }; db.items.push(i); log("New Item", n, "", i.qty); save(); render() }
+        function togAct(id) { const i = item(id); if (!confirm(act(i) ? "Item inactive karein? Purana record rahega." : "Item dobara active karein?")) return; i.active = !act(i); log(act(i) ? "Item Active" : "Item Inactive", i.name, "", ""); save(); render() }
+        // ---- Restock
+        function vRe() {
+            const L = db.restocks.map((r, x) => ({ r, x })).slice(-50).reverse(); return `<div class="card"><h3>Naya maal aaya</h3><div class="row"><div><label>Item</label><select id="ri">${opt(db.items.filter(act))}</select></div><div><label>Qty</label><input id="rq" type="number" min="1" style="width:80px"></div><div><label>Cost Rate (khali = purana)</label><input id="rc" type="number" min="0" style="width:110px"></div><button class="p" onclick="addRe()">Save Restock</button></div></div>
+<div class="card"><h3>Restock list (edit ho sakti hai)</h3><div class="tw"><table><tr><th>Date<th>Item<th>Qty<th>Cost<th></tr>${L.map(({ r, x }) => `<tr><td>${dt(r.ts)}${r.edited ? "<br><small>edited</small>" : ""}<td>${esc(r.name)}<td>${r.qty}<td>${fmt(r.cost)}<td><button class="p" onclick="editRe(${x})">Edit</button></tr>`).join("")}</table></div></div>`
+        }
+        function addRe() { const i = item($("#ri").value), q = parseInt($("#rq").value), c = +$("#rc").value || i.cost; if (!(q >= 1)) return alert("Qty likhein."); i.qty += q; i.cost = c; db.restocks.push({ ts: Date.now(), iid: i.id, name: i.name, qty: q, cost: c, by: me.u }); log("Restock", i.name, "", q); save(); render() }
+        function editRe(x) { const r = db.restocks[x]; if (!item(r.iid)) return alert("Ye item delete ho chuka hai, edit nahi ho sakta."); showMd(`<h3>Restock Edit</h3><label>Item</label><select id="ei">${db.items.filter(i => act(i) || i.id == r.iid).map(i => `<option value="${i.id}" ${i.id == r.iid ? "selected" : ""}>${esc(i.name)}</option>`).join("")}</select><label>Qty</label><input id="eq" type="number" min="1" value="${r.qty}"><label>Cost</label><input id="er" type="number" min="0" value="${r.cost}"><button class="p" onclick="saveRe(${x})">Save Edit</button> <button onclick="closeMd()">Cancel</button>`) }
+        function saveRe(x) {
+            const r = db.restocks[x], o = item(r.iid), n = item($("#ei").value), q = parseInt($("#eq").value), c = +$("#er").value; if (!(q >= 1) || !(c >= 0)) return alert("Qty 1 ya zyada aur cost sahi likhein.");
+            if (o.qty - r.qty + (n.id == o.id ? q : 0) < 0) return alert("Is change se " + o.name + " ki qty minus ho jayegi (kuch maal bik chuka hai).");
+            const a = `${r.name} x${r.qty} cost ${r.cost}`, b = `${n.name} x${q} cost ${c}`; if (a == b) return closeMd(); if (!confirm("Kya aap is edit ko save karna chahte hain?")) return closeMd();
+            o.qty -= r.qty; n.qty += q; n.cost = c; Object.assign(r, { iid: n.id, name: n.name, qty: q, cost: c, ts0: r.ts0 || r.ts, ts: Date.now(), edited: Date.now() }); log("Restock Edit", n.name, a, b); save(); closeMd(); render()
+        }
+        let lgf = { from: "", to: "", q: "" };
+        const lList = () => { const q = lgf.q.trim().toLowerCase(); return db.logs.filter(l => (!lgf.from || dk(l.ts) >= lgf.from) && (!lgf.to || dk(l.ts) <= lgf.to) && (!q || [l.type, l.ref, l.by, l.why, l.old, l.new].join(" ").toLowerCase().includes(q))) };
+        function vLog() { const F = lList(), f = lgf.from || lgf.to || lgf.q; return `<div class="card"><h3>Logs (${f ? F.length + " mile, " : ""}aakhri 150 dikh rahe hain)</h3><div class="row" style="margin-bottom:10px"><div><label>Search</label><input value="${esc(lgf.q)}" style="width:150px" onchange="lgf.q=this.value;render()"></div><div><label>Start From</label><input type="date" value="${lgf.from}" onchange="lgf.from=this.value;render()"></div><div><label>To</label><input type="date" value="${lgf.to}" onchange="lgf.to=this.value;render()"></div><button class="p" onclick="lgf={from:'',to:'',q:''};render()">Filter hatayein</button>${me.role == "admin" ? `<button class="d" style="padding:8px 14px" onclick="clrLogs()">Clear Logs</button>` : ""}</div><div class="tw"><table><tr><th>Date-Time<th>Type<th>Item/Ref<th>Old<th>New<th>By<th>Reason</tr>${F.slice(-150).reverse().map(l => `<tr><td>${dt(l.ts)}<td>${esc(l.type)}<td>${esc(l.ref)}<td>${esc(l.old)}<td>${esc(l.new)}<td>${esc(l.by)}<td>${esc(l.why)}</tr>`).join("") || "<tr><td colspan=7>Koi log nahi.</tr>"}</table></div></div>` }
+        function clrLogs() { if (me.role != "admin") return; const F = lList(), f = lgf.from || lgf.to || lgf.q; if (!F.length) return alert("Clear karne ke liye koi log nahi hai."); if (!confirm(f ? "Filter wale " + F.length + " logs delete karein? Baqi logs rahenge." : "Saare " + F.length + " logs delete karein?")) return; const S = new Set(F); db.logs = db.logs.filter(l => !S.has(l)); log("Logs Clear", "", F.length + " logs delete", ""); save(); render() }
+        // ---- Users
+        function vUsr() {
+            return `<div class="card"><h3>Naya User</h3><div class="row"><div><label>Username</label><input id="nu"></div><div><label>Password</label><input id="np"></div><div><label>Role</label><select id="nr"><option>staff</option><option>admin</option></select></div><button class="p" onclick="addUser()">Add User</button></div></div>
+<div class="card"><h3>Users</h3><table><tr><th>Username<th>Role<th></tr>${db.users.map((u, ix) => `<tr><td>${esc(u.u)}<td>${u.role}<td><button class="p" onclick="renUser(${ix})">Username edit</button> <button class="p" onclick="resetPw('${esc(u.u)}')">Password reset</button> ${u.u == me.u ? "" : `<button class="d" onclick="delUser('${esc(u.u)}')">x</button>`}</tr>`).join("")}</table></div>`
+        }
+        async function addUser() { const u = $("#nu").value.trim(), p = $("#np").value; if (!u || p.length < 4) return alert("Username aur kam az kam 4 harf ka password likhein."); if (db.users.find(x => x.u == u)) return alert("Ye username pehle se hai."); db.users.push({ u, p: await H(p), role: $("#nr").value }); save(); render() }
+        function delUser(u) { if (confirm(u + " ko delete karein?")) db.users = db.users.filter(x => x.u != u), save(), render() }
+        async function renUser(ix) {
+            const U = db.users[ix], o = U.u, v = await ask("Naya username (" + o + " ki jagah):"); if (v === null) return; const n = v.trim(); if (!n || n == o) return; if (db.users.find(x => x.u.toLowerCase() == n.toLowerCase())) return alert("Ye username pehle se hai."); if (!confirm(o + " ka username " + n + " kar dein? Purani entries bhi naye naam se jud jayengi.")) return;
+            db.sales.forEach(s => { if (s.by == o) s.by = n; if (s.editBy == o) s.editBy = n; (s.hist || []).forEach(h => { if (h.by == o) h.by = n }) });
+            db.udhar.forEach(u => { if (u.by == o) u.by = n; if (u.editBy == o) u.editBy = n; u.pays.forEach(p => { if (p.by == o) p.by = n }); u.hist.forEach(h => { if (h.by == o) h.by = n }) });
+            db.restocks.forEach(r => { if (r.by == o) r.by = n }); db.logs.forEach(l => { if (l.by == o) l.by = n }); U.u = n; if (me.u == o) me.u = n; log("User Rename", o, o, n); save(); render()
+        }
+        async function resetPw(u) { const p = await ask(u + " ka naya password (kam az kam 4 harf):"); if (!p || p.length < 4) return; db.users.find(x => x.u == u).p = await H(p); save(); alert("Password badal gaya.") }
+        // ---- Backup
+        function vBk() { return `<div class="card"><h3>Backup</h3><button class="p" onclick="exp()">Backup Download (JSON)</button> <button class="p ib" onclick="expX()">&#128229; Backup Download (Excel)</button></div><div class="card"><h3>Backup se wapas laayein</h3><div class="row"><div><label>JSON file</label><input type="file" accept=".json" onchange="imp(this.files[0]);this.value=''"></div><div><label>Excel file (.xlsx)</label><input type="file" accept=".xlsx" onchange="impX(this.files[0]);this.value=''"></div></div></div><div class="card"><h3>Mera password</h3><button class="p" onclick="resetPw(me.u)">Password badlein</button></div>` }
+        function exp() { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(db)], { type: "application/json" })); a.download = "shop-backup-" + now() + ".json"; a.click() }
+        function imp(f) { if (!f) return; const r = new FileReader(); r.onload = () => { try { const d = JSON.parse(r.result); if (!d.items || !d.sales || !d.users) throw 0; if (!confirm("Mojooda data replace ho jayega. Jari rakhein?")) return; db = d; fix(); save(); me = null; render() } catch (e) { alert("Ye sahi backup file nahi hai.") } }; r.readAsText(f) }
+        // ---- Excel (no library)
+        const crcT = (() => { const t = []; for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++)c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0 } return t })(), crc = b => { let c = -1; for (const x of b) c = crcT[(c ^ x) & 255] ^ (c >>> 8); return (c ^ -1) >>> 0 };
+        function zip(F) {
+            const e = new TextEncoder(), L = [], C = []; let o = 0; for (const [n, d] of F) {
+                const nb = e.encode(n), b = e.encode(d), c = crc(b), h = new DataView(new ArrayBuffer(30)), g = new DataView(new ArrayBuffer(46));
+                h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(12, 33, true); h.setUint32(14, c, true); h.setUint32(18, b.length, true); h.setUint32(22, b.length, true); h.setUint16(26, nb.length, true);
+                g.setUint32(0, 0x02014b50, true); g.setUint16(4, 20, true); g.setUint16(6, 20, true); g.setUint16(14, 33, true); g.setUint32(16, c, true); g.setUint32(20, b.length, true); g.setUint32(24, b.length, true); g.setUint16(28, nb.length, true); g.setUint32(42, o, true);
+                L.push(new Uint8Array(h.buffer), nb, b); C.push(new Uint8Array(g.buffer), nb); o += 30 + nb.length + b.length
+            }
+            const cs = C.reduce((a, x) => a + x.length, 0), z = new DataView(new ArrayBuffer(22)); z.setUint32(0, 0x06054b50, true); z.setUint16(8, F.length, true); z.setUint16(10, F.length, true); z.setUint32(12, cs, true); z.setUint32(16, o, true);
+            return new Blob([...L, ...C, new Uint8Array(z.buffer)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+        }
+        const cn = n => { let s = ""; n++; while (n) { s = String.fromCharCode(65 + (n - 1) % 26) + s; n = Math.floor((n - 1) / 26) } return s };
+        function xlsx(S) {
+            const X = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>', NS = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"',
+            cell = (v, r, i) => { let st = 0, f; if (v && typeof v == "object") { st = v.s || 0; f = v.f; v = v.v } const rf = cn(i) + (r + 1), a = st ? ` s="${st}"` : ""; if (f) return `<c r="${rf}"${a}><f>${esc(f)}</f></c>`; if (typeof v == "number" && isFinite(v)) return `<c r="${rf}"${a}><v>${v}</v></c>`; return `<c r="${rf}"${a} t="inlineStr"><is><t xml:space="preserve">${esc(v == null ? "" : v)}</t></is></c>` };
+            const F = [["[Content_Types].xml", X + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' + S.map((_, k) => `<Override PartName="/xl/worksheets/sheet${k + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("") + "</Types>"],
+            ["_rels/.rels", X + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
+            ["xl/workbook.xml", X + `<workbook ${NS} xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${S.map((s, k) => `<sheet name="${esc(s.name)}" sheetId="${k + 1}" r:id="rId${k + 1}"/>`).join("")}</sheets></workbook>`],
+            ["xl/_rels/workbook.xml.rels", X + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + S.map((_, k) => `<Relationship Id="rId${k + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${k + 1}.xml"/>`).join("") + `<Relationship Id="rId${S.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],
+            ["xl/styles.xml", X + `<styleSheet ${NS}><fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F4E78"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF2CC"/></patternFill></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="4"><xf/><xf fontId="1" fillId="2" applyFont="1" applyFill="1"/><xf fontId="2" fillId="3" applyFont="1" applyFill="1"/><xf fillId="3" applyFill="1"/></cellXfs></styleSheet>`]];
+            S.forEach((s, k) => F.push([`xl/worksheets/sheet${k + 1}.xml`, X + `<worksheet ${NS}><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${s.w.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join("")}</cols><sheetData>${s.rows.map((r, i) => `<row r="${i + 1}">${r.map((v, j) => cell(v, i, j)).join("")}</row>`).join("")}</sheetData></worksheet>`]));
+            return zip(F)
+        }
+        const dlf = (b, n) => { const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = n; a.click() }, hd = a => a.map(h => ({ v: h, s: 1 }));
+        function expSales() {
+            const ad = me.role == "admin", A = sList().reverse(), d = sfl.from == sfl.to ? (sfl.from || now()) : (sfl.from || "start") + "_to_" + (sfl.to || "end"); if (!A.length) return alert("Is filter mein koi sale nahi hai.");
+            const H = ["Entry (Date/Time)", "Item", "Qty", "Rate", "Fixed Total", "Customer Total", "Customer Paid"].concat(ad ? ["Profit", "By"] : [], ["Status", "Note"]), n = A.length + 1, sc = cn(H.length - 2),
+                rows = A.map(s => { const aj = fx(s) != tot(s), y = v => aj ? { v, s: 3 } : v; return [dt(s.ts), s.name, s.qty, s.rate, fx(s), tot(s), paid(s)].concat(ad ? [prof(s), s.by] : [], [s.status == "cancelled" ? "Cancelled" : "OK", aj ? "Customer Adjustment " + (tot(s) - fx(s)) : ""]).map(y) }),
+                sm = [2, 4, 5, 6].concat(ad ? [7] : []), T = H.map((h, j) => j == 0 ? { v: "Total", s: 2 } : sm.includes(j) ? { f: `SUMIF(${sc}2:${sc}${n},"OK",${cn(j)}2:${cn(j)}${n})`, s: 2 } : { v: "", s: 2 });
+            dlf(xlsx([{ name: "Sales " + d, w: [20, 28, 7, 9, 12, 14, 13].concat(ad ? [11, 12] : [], [11, 26]), rows: [hd(H), ...rows, T] }]), "sales-" + d + ".xlsx")
+        }
+        function expX() {
+            const t = v => v == null ? "" : v, B = a => a.map(h => ({ v: h, s: 1 })); dlf(xlsx([
+                { name: "Items", w: [8, 32, 9, 9, 9, 9], rows: [B(["ID", "Name", "Qty", "Cost", "Price", "Active"]), ...db.items.map(i => [i.id, i.name, i.qty, i.cost, i.price, act(i) ? "Yes" : "No"])] },
+                { name: "Sales", w: [8, 16, 8, 28, 7, 9, 9, 11, 10, 10, 11, 16, 10, 22, 40], rows: [B(["ID", "Time", "ItemID", "Item", "Qty", "Rate", "Cost", "Total", "Paid", "By", "Status", "EditTime", "EditBy", "Date/Time", "History"]), ...db.sales.map(s => [s.id, s.ts, s.iid, s.name, s.qty, s.rate, s.cost, tot(s), paid(s), s.by, s.status, t(s.editTs), t(s.editBy), dt(s.ts), JSON.stringify(s.hist || [])])] },
+                { name: "Restocks", w: [16, 8, 28, 7, 9, 10, 12, 22], rows: [B(["Time", "ItemID", "Item", "Qty", "Cost", "By", "Edited", "Date/Time"]), ...db.restocks.map(r => [r.ts, r.iid, r.name, r.qty, r.cost, t(r.by), t(r.edited), dt(r.ts)])] },
+                { name: "Udhar", w: [8, 16, 22, 16, 8, 8, 30, 7, 9, 10, 10, 12, 10, 10, 16, 10, 40], rows: [B(["ID", "Time", "Name", "Phone", "Type", "ItemID", "Item", "Qty", "Cost", "Total", "Fixed", "Due", "By", "Status", "EditTime", "EditBy", "History"]), ...db.udhar.map(u => [u.id, u.ts, u.name, u.phone, u.type, t(u.iid), u.details, u.qty, u.cost, u.total, t(u.fixed), u.due || "", u.by, u.status || "ok", t(u.editTs), t(u.editBy), JSON.stringify(u.hist || [])])] },
+                { name: "UdharPayments", w: [10, 16, 10, 10, 30], rows: [B(["UdharID", "Time", "Amount", "By", "Note"]), ...db.udhar.flatMap(u => u.pays.map(p => [u.id, p.ts, p.amt, p.by, p.note || ""]))] },
+                { name: "Users", w: [18, 70, 10], rows: [B(["Username", "PasswordHash", "Role"]), ...db.users.map(u => [u.u, u.p, u.role])] },
+                { name: "Logs", w: [16, 14, 24, 14, 14, 10, 20], rows: [B(["Time", "Type", "Ref", "Old", "New", "By", "Reason"]), ...db.logs.map(l => [l.ts, l.type, l.ref, t(l.old), t(l.new), l.by, l.why])] },
+                { name: "Settings", w: [16, 30], rows: [B(["Key", "Value"]), ["Name", nm()], ["Low", db.low], ["StaffStock", db.set.staffStock ? "ON" : "OFF"], ["StaffCost", db.set.staffCost ? "ON" : "OFF"], ["StaffUdhar", db.set.staffUdhar ? "ON" : "OFF"], ["NextId", db.nid], ["NextUdhar", db.uid]] }]), "shop-backup-" + now() + ".xlsx")
+        }
+        async function unzip(buf) {
+            const d = new DataView(buf), u = new Uint8Array(buf), dc = new TextDecoder(), o = {}; let p = buf.byteLength - 22; while (p >= 0 && d.getUint32(p, true) != 0x06054b50) p--; const n = d.getUint16(p + 10, true); let q = d.getUint32(p + 16, true);
+            for (let i = 0; i < n; i++) {
+                const m = d.getUint16(q + 10, true), cs = d.getUint32(q + 20, true), nl = d.getUint16(q + 28, true), el = d.getUint16(q + 30, true), ml = d.getUint16(q + 32, true), lo = d.getUint32(q + 42, true), nm2 = dc.decode(u.slice(q + 46, q + 46 + nl)), st = lo + 30 + d.getUint16(lo + 26, true) + d.getUint16(lo + 28, true); let b = u.slice(st, st + cs);
+                if (m == 8) b = new Uint8Array(await new Response(new Blob([b]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer()); o[nm2] = dc.decode(b); q += 46 + nl + el + ml
+            } return o
+        }
+        async function readXl(buf) {
+            const z = await unzip(buf), P = x => new DOMParser().parseFromString(x, "text/xml"), G = (x, t) => [...x.getElementsByTagName(t)], ss = z["xl/sharedStrings.xml"] ? G(P(z["xl/sharedStrings.xml"]), "si").map(x => G(x, "t").map(t => t.textContent).join("")) : [], rel = {}, R = {};
+            G(P(z["xl/_rels/workbook.xml.rels"]), "Relationship").forEach(r => rel[r.getAttribute("Id")] = r.getAttribute("Target"));
+            G(P(z["xl/workbook.xml"]), "sheet").forEach(sh => {
+                const t = rel[sh.getAttribute("r:id")].replace(/^\/?(xl\/)?/, "xl/"), rows = []; G(P(z[t]), "c").forEach(c => {
+                    const m = c.getAttribute("r").match(/([A-Z]+)(\d+)/), ci = [...m[1]].reduce((a, ch) => a * 26 + ch.charCodeAt(0) - 64, 0) - 1, ty = c.getAttribute("t"), vv = c.getElementsByTagName("v")[0]; let v;
+                    if (ty == "inlineStr") v = G(c, "t").map(t => t.textContent).join(""); else if (vv) v = ty == "s" ? ss[+vv.textContent] : ty == "str" || ty == "b" ? vv.textContent : Number(vv.textContent); (rows[m[2] - 1] = rows[m[2] - 1] || [])[ci] = v
+                }); R[sh.getAttribute("name")] = rows
+            }); return R
+        }
+        async function impX(f) {
+            if (!f) return; try {
+                const R = await readXl(await f.arrayBuffer()), ob = n => { const r = R[n]; if (!r) throw 0; const h = r[0]; return r.slice(1).filter(x => x && x.length).map(x => Object.fromEntries(h.map((k, i) => [k, x[i]]))) }, N = v => v === undefined || v === "" ? undefined : Number(v), S = v => v === undefined ? "" : String(v), St = {};
+                (R.Settings || []).slice(1).forEach(r => { if (r) St[r[0]] = r[1] });
+                const UP = R.UdharPayments ? ob("UdharPayments") : [], d = {
+                    udhar: (R.Udhar ? ob("Udhar") : []).map(x => ({ id: N(x.ID), ts: N(x.Time), name: S(x.Name), phone: S(x.Phone), type: S(x.Type) || "other", iid: N(x.ItemID), qty: N(x.Qty) || 1, cost: N(x.Cost) || 0, details: S(x.Item), total: N(x.Total), fixed: N(x.Fixed), due: S(x.Due), by: S(x.By), status: S(x.Status) || "ok", editTs: N(x.EditTime), editBy: x.EditBy === undefined ? undefined : S(x.EditBy), hist: (() => { try { return JSON.parse(x.History || "[]") } catch (e) { return [] } })(), pays: UP.filter(p => N(p.UdharID) == N(x.ID)).map(p => ({ ts: N(p.Time), amt: N(p.Amount), by: S(p.By), note: S(p.Note) })) })), items: ob("Items").map(x => Object.assign({ id: N(x.ID), name: S(x.Name), qty: N(x.Qty) || 0, cost: N(x.Cost) || 0, price: N(x.Price) || 0 }, x.Active == "No" ? { active: false } : {})),
+                    sales: ob("Sales").map(x => ({ id: N(x.ID), ts: N(x.Time), iid: N(x.ItemID), name: S(x.Item), qty: N(x.Qty), rate: N(x.Rate), cost: N(x.Cost) || 0, total: N(x.Total), paid: N(x.Paid), by: S(x.By), status: S(x.Status) || "ok", editTs: N(x.EditTime), editBy: x.EditBy === undefined ? undefined : S(x.EditBy), hist: (() => { try { return JSON.parse(x.History || "[]") } catch (e) { return [] } })() })),
+                    restocks: ob("Restocks").map(x => ({ ts: N(x.Time), iid: N(x.ItemID), name: S(x.Item), qty: N(x.Qty), cost: N(x.Cost), by: S(x.By), edited: N(x.Edited) })),
+                    users: ob("Users").map(x => ({ u: S(x.Username), p: S(x.PasswordHash), role: S(x.Role) })),
+                    logs: ob("Logs").map(x => ({ ts: N(x.Time), type: S(x.Type), ref: S(x.Ref), old: S(x.Old), new: S(x.New), by: S(x.By), why: S(x.Reason) })),
+                    low: N(St.Low) ?? 3, nid: N(St.NextId) || 1000, set: { name: St.Name || "Shop System", staffStock: St.StaffStock == "ON", staffCost: St.StaffCost == "ON", staffUdhar: St.StaffUdhar != "OFF" }
+                };
+                if (!d.items.length || !d.users.some(u => u.role == "admin")) throw 0; d.nid = Math.max(d.nid, ...d.items.map(i => i.id + 1), ...d.sales.map(s => s.id + 1)); d.uid = Math.max(N(St.NextUdhar) || 1, ...d.udhar.map(u => u.id + 1));
+                if (!confirm("Mojooda data replace ho jayega. Jari rakhein?")) return; db = d; fix(); save(); me = null; render()
+            } catch (e) { alert("Ye sahi Excel backup file nahi hai. Sirf is system se download hui Backup (Excel) file hi chalegi.") }
+        }
+        init();
+    </script>
+</body>
+
+</html>
