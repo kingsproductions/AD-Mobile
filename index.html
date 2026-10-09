@@ -316,17 +316,24 @@
             autoChk()
         }
         function logout() { me = null; cur = null; db = null; render() }
+        const uTaken = u => { const l = u.toLowerCase(); return reg.owners.some(o => o.u.toLowerCase() == l) || reg.shops.some(s => ((sDb(s) || { users: [] }).users).some(x => x.u.toLowerCase() == l)) };
         function loginView(a) {
-            const m = lm == "owner", S = reg.shops, lk = "style=\"cursor:pointer;color:#1F4E78;text-decoration:underline\"";
-            a.innerHTML = `<div id="login" class="card"><h3>${m ? "Owner Login" : esc(S.length == 1 ? S[0].name : "Shop System") + " - Login"}</h3>${!m && S.length > 1 ? `<label>Shop</label><select id="ls" style="width:100%;margin-bottom:10px">${S.map(s => `<option value="${s.id}" ${s.id == lsh ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select>` : ""}<label>Username</label><input id="lu"><label>Password</label><input id="lp" type="password" onkeydown="if(event.key=='Enter')login()"><button class="p" onclick="login()">Login</button><p><small>Kindly enter your username and password.</small></p><p><small>${m ? `<a ${lk} onclick="lm='shop';render()">Shop Login</a>` : `Password bhool gaye? Owner se rabta karein. | <a ${lk} onclick="lm='owner';render()">Owner Login</a>`}</small></p></div>`
+            a.innerHTML = `<div id="login" class="card"><h3>${esc(reg.shops.length == 1 ? reg.shops[0].name : "Shop System")} - Login</h3><label>Username</label><input id="lu" autocomplete="username"><label>Password</label><input id="lp" type="password" autocomplete="current-password" onkeydown="if(event.key=='Enter')login()"><button class="p" onclick="login()">Login</button><p><small>Kindly enter your username and password.</small></p><p><small>Password bhool gaye? Owner se rabta karein.</small></p></div>`
         }
+        let pend = null;
         async function login() {
-            const u = $("#lu").value.trim(), p = await H($("#lp").value);
-            if (lm == "owner") { const x = reg.owners.find(y => y.u == u && y.p == p); if (!x) return alert("Username ya password galat hai."); if (!x.active) return alert("Ye owner login inactive hai."); ow = x; x.last = Date.now(); sv2(); ot = "dash"; return render() }
-            const s = shp($("#ls") ? $("#ls").value : (reg.shops[0] || {}).id); if (!s) return alert("Koi shop majood nahi. Owner login se shop banayein."); lsh = s.id; autoChk();
-            if (s.status != "active") return alert("Is shop ka system band (inactive) hai. Bill / payment ke liye owner se rabta karein.");
-            db = sDb(s); if (!db) return alert("Is shop ka data nahi mila."); cur = s; K = s.key; fix(); const x = db.users.find(y => y.u == u && y.p == p);
-            if (!x || x.off) { db = null; cur = null; return alert(x && x.off ? "Ye user inactive hai. Admin se rabta karein." : "Username ya password galat hai.") }
+            const u = $("#lu").value.trim(), p = await H($("#lp").value); if (!u) return alert("Username likhein.");
+            const o = reg.owners.find(y => y.u == u && y.p == p);
+            if (o) { if (!o.active) return alert("Ye login inactive hai. Super owner se rabta karein."); ow = o; o.last = Date.now(); sv2(); ot = "dash"; return render() }
+            autoChk(); const M = []; reg.shops.forEach(s => { const d = sDb(s), x = d && d.users.find(y => y.u == u && y.p == p); if (x) M.push(s.id) });
+            if (!M.length) return alert("Username ya password galat hai.");
+            const A = M.filter(id => shp(id).status == "active"); if (!A.length) return alert("Is shop ka system band (inactive) hai. Bill / payment ke liye owner se rabta karein.");
+            pend = { u, p }; if (A.length == 1) return enter(A[0]);
+            showMd(`<h3>Kaun si shop?</h3>${A.map(id => `<button class="p" style="display:block;width:100%;margin-bottom:8px" onclick="enter(${id})">${esc(shp(id).name)}</button>`).join("")}<button onclick="closeMd()">Cancel</button>`)
+        }
+        function enter(id) {
+            closeMd(); const s = shp(id); if (!pend || !s) return; db = sDb(s); if (!db) return alert("Is shop ka data nahi mila."); cur = s; K = s.key; fix(); const x = db.users.find(y => y.u == pend.u && y.p == pend.p); pend = null;
+            if (!x) { db = null; cur = null; return alert("Username ya password galat hai.") } if (x.off) { db = null; cur = null; return alert("Ye user inactive hai. Admin se rabta karein.") }
             me = { u: x.u, role: x.role }; s.last = { ts: Date.now(), u: x.u }; sv2(); tab = x.role == "admin" ? "dash" : "sale"; sd = now(); render()
         }
         // ---- Owner pages
@@ -347,7 +354,7 @@
         }
         async function addShop() {
             const n = $("#nsn").value.trim(), c = $("#nsc").value.trim(), u = $("#nsu").value.trim(), p = $("#nsp").value, f = +$("#nsf").value || 0, d = +$("#nsd").value || 10, m = $("#nsm").value;
-            if (!n) return alert("Shop ka naam likhein."); if (reg.shops.some(s => s.name.toLowerCase() == n.toLowerCase())) return alert("Is naam ki shop pehle se hai."); if (c && !okPh(c)) return alert("Contact sahi likhein, jaise 0300-1234567 (ya khali chhor dein)."); if (!u) return alert("Admin username likhein."); if (p.length < 4) return alert("Admin password kam az kam 4 harf ka likhein.");
+            if (!n) return alert("Shop ka naam likhein."); if (reg.shops.some(s => s.name.toLowerCase() == n.toLowerCase())) return alert("Is naam ki shop pehle se hai."); if (c && !okPh(c)) return alert("Contact sahi likhein, jaise 0300-1234567 (ya khali chhor dein)."); if (!u) return alert("Admin username likhein."); if (uTaken(u)) return alert("Ye username pehle se kisi aur login ke paas hai. Alag username chunein."); if (p.length < 4) return alert("Admin password kam az kam 4 harf ka likhein.");
             if (!(f >= 0)) return alert("Fee sahi likhein."); if (!(d >= 1 && d <= 28)) return alert("Due Day 1 se 28 ke beech likhein."); if (!m) return alert("Bill shuru hone ka mahina chunein.");
             const id = reg.sid++, s = { id, key: "shopdb_" + id, name: n, contact: c ? fph(c) : "", status: "active", fee: f, dueDay: d, grace: 5, auto: true, start: m, menus: {}, bills: [], created: Date.now(), last: null, ev: [] };
             pDb(s, await mkDb(n, u, p, [], false)); reg.shops.push(s); evt(s, "Shop banayi gayi"); autoChk(); render()
@@ -381,7 +388,7 @@
             sv2(); alert("Password badal gaya.\nUsername: " + u.u + "\nNaya password: " + p + "\n(Ye dobara nahi dikhega, user ko bata dein.)"); manage(id)
         }
         async function oRen(id, i) {
-            const s = shp(id), d = sDb(s), o = d.users[i].u, v = await ask("Naya username (" + o + " ki jagah):"); if (v === null) return manage(id); const n = v.trim(); if (!n || n == o) return manage(id); if (d.users.some(x => x.u.toLowerCase() == n.toLowerCase())) { alert("Ye username pehle se hai."); return manage(id) }
+            const s = shp(id), d = sDb(s), o = d.users[i].u, v = await ask("Naya username (" + o + " ki jagah):"); if (v === null) return manage(id); const n = v.trim(); if (!n || n == o) return manage(id); if (uTaken(n)) { alert("Ye username pehle se kisi aur login ke paas hai."); return manage(id) }
             d.sales.forEach(x => { if (x.by == o) x.by = n; if (x.editBy == o) x.editBy = n; (x.hist || []).forEach(h => { if (h.by == o) h.by = n }) }); (d.udhar || []).forEach(u => { if (u.by == o) u.by = n; if (u.editBy == o) u.editBy = n; (u.pays || []).forEach(p => { if (p.by == o) p.by = n }); (u.hist || []).forEach(h => { if (h.by == o) h.by = n }) });
             d.restocks.forEach(r => { if (r.by == o) r.by = n }); d.logs.forEach(l => { if (l.by == o) l.by = n }); d.users[i].u = n; d.logs.push({ ts: Date.now(), type: "User Rename", ref: o, old: o, new: n, by: "owner:" + ow.u, why: "" }); pDb(s, d); evt(s, "Username badla: " + o + " -> " + n); sv2(); manage(id)
         }
@@ -390,7 +397,7 @@
             if (!confirm(u.u + (u.off ? " ko Active karein?" : " ko Inactive karein?"))) return; u.off = !u.off; if (!u.off) delete u.off; pDb(s, d); evt(s, "User " + u.u + (u.off ? " inactive" : " active")); sv2(); manage(id)
         }
         async function addSU(id) {
-            const s = shp(id), d = sDb(s), u = $("#au").value.trim(), p = $("#ap2").value; if (!u || p.length < 4) return alert("Username aur kam az kam 4 harf ka password likhein."); if (d.users.some(x => x.u.toLowerCase() == u.toLowerCase())) return alert("Ye username pehle se hai.");
+            const s = shp(id), d = sDb(s), u = $("#au").value.trim(), p = $("#ap2").value; if (!u || p.length < 4) return alert("Username aur kam az kam 4 harf ka password likhein."); if (uTaken(u)) return alert("Ye username pehle se kisi aur login ke paas hai.");
             d.users.push({ u, p: await H(p), role: $("#ar").value }); pDb(s, d); evt(s, "User add: " + u); sv2(); manage(id)
         }
         function delShop(id) {
@@ -420,7 +427,7 @@
 <div class="card"><h3>Owner Users</h3><div class="tw"><table><tr><th>Naam<th>Username<th>Contact<th>Role<th>Access<th>Status<th>Last Login<th>Action</tr>${reg.owners.map((o, i) => `<tr><td>${esc(o.name || "")}<td>${esc(o.u)}<td>${esc(o.contact || "")}<td>${o.role}<td>${o.role == "super" ? "Sab" : AK.filter(a => o.access && o.access[a[0]]).map(a => a[1]).join(", ") || "-"}<td class="${o.active ? "cl" : "out"}">${o.active ? "Active" : "Inactive"}<td>${o.last ? dt(o.last) : "-"}<td><button class="p" onclick="editOwner(${i})">Edit</button> <button class="p" onclick="pwModal('Password reset - ${esc(o.u)}','savePwO(${i})','closeMd()')">Password</button> ${o.u == ow.u ? "" : `<button class="p" onclick="togOwner(${i})">${o.active ? "Inactive" : "Active"}</button> <button class="d" onclick="delOwner(${i})">x</button>`}</tr>`).join("")}</table></div></div>`
         }
         async function addOwner() {
-            const n = $("#onn").value.trim(), u = $("#onu").value.trim(), p = $("#onp").value, c = $("#onc").value.trim(); if (!n || !u) return alert("Naam aur username likhein."); if (p.length < 4) return alert("Password kam az kam 4 harf ka likhein."); if (c && !okPh(c)) return alert("Contact sahi likhein (ya khali chhor dein)."); if (reg.owners.some(x => x.u.toLowerCase() == u.toLowerCase())) return alert("Ye username pehle se hai.");
+            const n = $("#onn").value.trim(), u = $("#onu").value.trim(), p = $("#onp").value, c = $("#onc").value.trim(); if (!n || !u) return alert("Naam aur username likhein."); if (p.length < 4) return alert("Password kam az kam 4 harf ka likhein."); if (c && !okPh(c)) return alert("Contact sahi likhein (ya khali chhor dein)."); if (uTaken(u)) return alert("Ye username pehle se kisi aur login ke paas hai.");
             reg.owners.push({ id: reg.oid++, u, p: await H(p), name: n, contact: c ? fph(c) : "", role: $("#onr").value, active: true, access: gAcc() }); sv2(); render()
         }
         function editOwner(i) {
@@ -648,10 +655,10 @@ ${udSum()}<div class="card"><h3>Low / Out Stock (${lo.length})</h3><div class="t
             return `<div class="card"><h3>Naya User</h3><div class="row"><div><label>Username</label><input id="nu"></div><div><label>Password</label><input id="np"></div><div><label>Role</label><select id="nr"><option>staff</option><option>admin</option></select></div><button class="p" onclick="addUser()">Add User</button></div></div>
 <div class="card"><h3>Users</h3><table><tr><th>Username<th>Role<th></tr>${db.users.map((u, ix) => `<tr><td>${esc(u.u)}<td>${u.role}<td><button class="p" onclick="renUser(${ix})">Username edit</button> <button class="p" onclick="resetPw('${esc(u.u)}')">Password reset</button> ${u.u == me.u ? "" : `<button class="d" onclick="delUser('${esc(u.u)}')">x</button>`}</tr>`).join("")}</table></div>`
         }
-        async function addUser() { const u = $("#nu").value.trim(), p = $("#np").value; if (!u || p.length < 4) return alert("Username aur kam az kam 4 harf ka password likhein."); if (db.users.find(x => x.u == u)) return alert("Ye username pehle se hai."); db.users.push({ u, p: await H(p), role: $("#nr").value }); save(); render() }
+        async function addUser() { const u = $("#nu").value.trim(), p = $("#np").value; if (!u || p.length < 4) return alert("Username aur kam az kam 4 harf ka password likhein."); if (db.users.find(x => x.u == u) || uTaken(u)) return alert("Ye username pehle se hai."); db.users.push({ u, p: await H(p), role: $("#nr").value }); save(); render() }
         function delUser(u) { if (confirm(u + " ko delete karein?")) db.users = db.users.filter(x => x.u != u), save(), render() }
         async function renUser(ix) {
-            const U = db.users[ix], o = U.u, v = await ask("Naya username (" + o + " ki jagah):"); if (v === null) return; const n = v.trim(); if (!n || n == o) return; if (db.users.find(x => x.u.toLowerCase() == n.toLowerCase())) return alert("Ye username pehle se hai."); if (!confirm(o + " ka username " + n + " kar dein? Purani entries bhi naye naam se jud jayengi.")) return;
+            const U = db.users[ix], o = U.u, v = await ask("Naya username (" + o + " ki jagah):"); if (v === null) return; const n = v.trim(); if (!n || n == o) return; if (db.users.find(x => x.u.toLowerCase() == n.toLowerCase()) || uTaken(n)) return alert("Ye username pehle se hai."); if (!confirm(o + " ka username " + n + " kar dein? Purani entries bhi naye naam se jud jayengi.")) return;
             db.sales.forEach(s => { if (s.by == o) s.by = n; if (s.editBy == o) s.editBy = n; (s.hist || []).forEach(h => { if (h.by == o) h.by = n }) });
             db.udhar.forEach(u => { if (u.by == o) u.by = n; if (u.editBy == o) u.editBy = n; u.pays.forEach(p => { if (p.by == o) p.by = n }); u.hist.forEach(h => { if (h.by == o) h.by = n }) });
             db.restocks.forEach(r => { if (r.by == o) r.by = n }); db.logs.forEach(l => { if (l.by == o) l.by = n }); U.u = n; if (me.u == o) me.u = n; log("User Rename", o, o, n); save(); render()
